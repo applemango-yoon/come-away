@@ -1,7 +1,7 @@
 import json
 import os
 import re
-import anthropic
+import urllib.request
 from http.server import BaseHTTPRequestHandler
 
 def mark_highlights(text):
@@ -44,14 +44,22 @@ class handler(BaseHTTPRequestHandler):
             body = json.loads(self.rfile.read(length))
             passage = body.get('passage', '')
 
-            client = anthropic.Anthropic(api_key=os.environ['ANTHROPIC_API_KEY'])
-            message = client.messages.create(
-                model='claude-opus-4-8',
-                max_tokens=2048,
-                messages=[{'role': 'user', 'content': PROMPT.format(passage=passage)}]
-            )
+            api_key = os.environ['GEMINI_API_KEY']
+            prompt = PROMPT.format(passage=passage)
 
-            text = message.content[0].text.strip()
+            payload = json.dumps({
+                "contents": [{"parts": [{"text": prompt}]}],
+                "generationConfig": {"temperature": 0.3}
+            }).encode()
+
+            url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key={api_key}"
+            req = urllib.request.Request(url, data=payload, method='POST')
+            req.add_header('Content-Type', 'application/json')
+
+            with urllib.request.urlopen(req, timeout=60) as r:
+                result = json.loads(r.read())
+
+            text = result['candidates'][0]['content']['parts'][0]['text'].strip()
             if '```' in text:
                 text = text.split('```')[1]
                 if text.startswith('json'):
