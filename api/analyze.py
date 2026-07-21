@@ -3,6 +3,7 @@ import os
 import re
 import urllib.parse
 import urllib.request
+import urllib.error
 from http.server import BaseHTTPRequestHandler
 
 
@@ -39,27 +40,37 @@ def normalize_key(passage):
     return re.sub(r'\s+', ' ', passage.strip().lower())
 
 
-def resolve_provider():
-    """환경변수로 AI 공급자 결정.
-    우선순위: AI_API_URL 직접 지정 > OPENROUTER_API_KEY > AI_GATEWAY_API_KEY(Vercel) > GROQ_API_KEY
+def providers():
+    """시도할 AI 공급자 목록(우선순위 순). 하나가 실패하면 다음 것을 시도한다.
+    Anthropic(클로드)을 먼저 두는 이유: Groq은 클라우드/지역 차단으로 403이 날 수 있고,
+    Anthropic은 Vercel에서 안정적으로 동작하기 때문.
+    각 항목: (형식, URL, 키, 모델). 형식은 'anthropic' 또는 'openai'(OpenAI 호환).
     """
+    out = []
+    m = os.environ.get('AI_MODEL')  # 지정 시 모든 공급자에 우선 적용
     if os.environ.get('AI_API_URL'):
-        return (os.environ['AI_API_URL'],
-                os.environ.get('AI_API_KEY', ''),
-                os.environ.get('AI_MODEL', 'meta-llama/llama-3.3-70b-instruct'))
+        out.append(('openai', os.environ['AI_API_URL'],
+                    os.environ.get('AI_API_KEY', ''),
+                    m or 'meta-llama/llama-3.3-70b-instruct'))
+    if os.environ.get('ANTHROPIC_API_KEY'):
+        out.append(('anthropic', 'https://api.anthropic.com/v1/messages',
+                    os.environ['ANTHROPIC_API_KEY'],
+                    m or 'claude-haiku-4-5'))
     if os.environ.get('OPENROUTER_API_KEY'):
-        return ('https://openrouter.ai/api/v1/chat/completions',
-                os.environ['OPENROUTER_API_KEY'],
-                os.environ.get('AI_MODEL', 'meta-llama/llama-3.3-70b-instruct:free'))
+        out.append(('openai', 'https://openrouter.ai/api/v1/chat/completions',
+                    os.environ['OPENROUTER_API_KEY'],
+                    m or 'meta-llama/llama-3.3-70b-instruct:free'))
     if os.environ.get('AI_GATEWAY_API_KEY'):
-        return ('https://ai-gateway.vercel.sh/v1/chat/completions',
-                os.environ['AI_GATEWAY_API_KEY'],
-                os.environ.get('AI_MODEL', 'openai/gpt-4o-mini'))
+        out.append(('openai', 'https://ai-gateway.vercel.sh/v1/chat/completions',
+                    os.environ['AI_GATEWAY_API_KEY'],
+                    m or 'openai/gpt-4o-mini'))
     if os.environ.get('GROQ_API_KEY'):
-        return ('https://api.groq.com/openai/v1/chat/completions',
-                os.environ['GROQ_API_KEY'],
-                os.environ.get('AI_MODEL', 'llama-3.3-70b-versatile'))
-    raise RuntimeError('AI API 키가 설정되지 않았어요. OPENROUTER_API_KEY 또는 AI_GATEWAY_API_KEY를 Vercel 환경변수에 추가해 주세요.')
+        out.append(('openai', 'https://api.groq.com/openai/v1/chat/completions',
+                    os.environ['GROQ_API_KEY'],
+                    m or 'llama-3.3-70b-versatile'))
+    if not out:
+        raise RuntimeError('AI API 키가 설정되지 않았어요. ANTHROPIC_API_KEY 또는 GROQ_API_KEY를 Vercel 환경변수에 추가해 주세요.')
+    return out
 
 
 PROMPT = '''성경 본문 "{passage}"를 분석해서 아래 JSON 형식으로만 응답해줘. 코드블록 없이 JSON만.
@@ -120,23 +131,60 @@ def extract_json(text):
     return json.loads(text[start:end + 1])
 
 
+def _post_json(url, headers, payload):
+    """POST 후 JSON 반환. HTTP 오류면 서버가 준 실제 본문을 메시지에 담아 올림."""
+    req = urllib.request.Request(url, data=payload, method='POST')
+    for k, v in headers.items():
+        req.add_header(k, v)
+    try:
+        with urllib.request.urlopen(req, timeout=55) as r:
+            return json.loads(r.read())
+    except urllib.error.HTTPError as e:
+        detail = ''
+        try:
+            detail = e.read().decode('utf-8', 'ignore')[:300]
+        except Exception:
+            detail = e.reason or ''
+        raise RuntimeError('HTTP %s %s' % (e.code, detail))
+
+
 def call_ai(passage, strict=False):
-    url, key, model = resolve_provider()
     content = PROMPT.format(passage=passage)
     if strict:
         content += '\n\n반드시 유효한 JSON 객체 하나만, 다른 텍스트 없이 출력해.'
-    payload = json.dumps({
-        'model': model,
-        'messages': [{'role': 'user', 'content': content}],
-        'max_tokens': 2048,
-        'temperature': 0.3
-    }).encode()
-    req = urllib.request.Request(url, data=payload, method='POST')
-    req.add_header('Authorization', 'Bearer ' + key)
-    req.add_header('Content-Type', 'application/json')
-    with urllib.request.urlopen(req, timeout=55) as r:
-        result = json.loads(r.read())
-    return extract_json(result['choices'][0]['message']['content'])
+    errors = []
+    for kind, url, key, model in providers():
+        try:
+            if kind == 'anthropic':
+                payload = json.dumps({
+                    'model': model,
+                    'max_tokens': 2048,
+                    'temperature': 0.3,
+                    'messages': [{'role': 'user', 'content': content}]
+                }).encode()
+                headers = {'x-api-key': key,
+                           'anthropic-version': '2023-06-01',
+                           'Content-Type': 'application/json'}
+                result = _post_json(url, headers, payload)
+                text = result['content'][0]['text']
+            else:  # openai 호환 (Groq / OpenRouter / Vercel Gateway 등)
+                payload = json.dumps({
+                    'model': model,
+                    'messages': [{'role': 'user', 'content': content}],
+                    'max_tokens': 2048,
+                    'temperature': 0.3
+                }).encode()
+                headers = {'Authorization': 'Bearer ' + key,
+                           'Content-Type': 'application/json'}
+                result = _post_json(url, headers, payload)
+                text = result['choices'][0]['message']['content']
+            return extract_json(text)
+        except (ValueError, json.JSONDecodeError):
+            raise  # 응답은 왔는데 JSON 형식 문제 → 상위에서 strict로 재시도
+        except Exception as e:
+            errors.append('%s %s' % (kind, e))
+            continue  # 이 공급자 실패 → 다음 공급자 시도
+    raise RuntimeError(' / '.join(errors) if errors else 'AI 호출에 실패했어요.')
 
 
 class handler(BaseHTTPRequestHandler):
