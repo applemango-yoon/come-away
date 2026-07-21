@@ -1,6 +1,7 @@
 import json
 import os
 import urllib.request
+import urllib.parse
 from http.server import BaseHTTPRequestHandler
 
 
@@ -59,8 +60,19 @@ class handler(BaseHTTPRequestHandler):
                 payload['email'] = email
             if avatar:
                 payload['avatar'] = avatar
-            sb('POST', 'members?on_conflict=name', payload,
-               extra_headers={'Prefer': 'resolution=merge-duplicates,return=minimal'})
+            # 이름 unique 제약(on_conflict)에 의존하지 않고 저장.
+            # 같은 이름이 이미 있으면 수정(PATCH), 없으면 새로 추가(POST).
+            qname = urllib.parse.quote(name, safe='')
+            try:
+                existing = sb('GET', 'members?name=eq.' + qname + '&select=name') or []
+            except Exception:
+                existing = []
+            if existing:
+                sb('PATCH', 'members?name=eq.' + qname, payload,
+                   extra_headers={'Prefer': 'return=minimal'})
+            else:
+                sb('POST', 'members', payload,
+                   extra_headers={'Prefer': 'return=minimal'})
             self._send_json({'ok': True})
         except Exception as e:
             self._send_json({'error': str(e)}, 500)

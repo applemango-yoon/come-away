@@ -753,7 +753,12 @@ async function saveName() {
   me = {name, email, code, avatar};   // 세션 메모리에만 유지 (저장 안 함 → 새로고침하면 다시 로그인)
   updateMeBadge();
   document.getElementById('name-modal').classList.remove('show');
-  if(!res.ok) toast('입장했어요. (기록 저장이 잠시 불안정할 수 있어요)');
+  if(!res.ok) {
+    // 코드는 맞아서 입장은 시키되, 저장이 실패했으면 실제 오류를 짧게 보여줘 진단에 도움.
+    let dbg = '';
+    try { const j = await res.json(); const e = j && (j.error || j.message); if(e) dbg = ' [' + String(e).slice(0,70) + ']'; } catch(e) {}
+    toast('입장했어요. (기록 저장이 잠깐 불안정' + dbg + ')');
+  }
   loadDashboard(true);
 }
 
