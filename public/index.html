@@ -653,9 +653,11 @@ const DEFAULT_AVA = '🐑|#c9d6bd';
 let pickedEmoji = '🐑', pickedColor = '#c9d6bd';
 
 function loadMe() {
-  try { me = JSON.parse(localStorage.getItem('ca_me')) || null; } catch(e) { me = null; }
+  // 매 방문(새로고침)마다 로그아웃 상태로 시작 — 항상 입장 코드부터 다시 받음
+  me = null;
+  try { localStorage.removeItem('ca_me'); } catch(e) {}
   updateMeBadge();
-  if(!me || !me.name) openNameModal();
+  openNameModal();
 }
 function avatarRaw(name) {
   if(me && me.name === name && me.avatar) return me.avatar;
@@ -710,17 +712,25 @@ async function saveName() {
   const btn = document.getElementById('save-name-btn');
   if(btn){ btn._label = btn.textContent; btn.disabled = true; btn.textContent = '확인 중...'; }
   // 입장 코드 검증 + 멤버 등록을 한 번에. 코드가 틀리면 여기서 막고 입장 안 시킴.
-  let res;
-  try {
-    res = await fetch('/api/member', {method:'POST',
-      headers:{'Content-Type':'application/json', 'X-Entry-Code': code},
-      body:JSON.stringify({name, email, avatar})});
-  } catch(e) {
-    if(btn){ btn.disabled=false; btn.textContent=btn._label; }
-    toast('연결 오류예요. 잠시 후 다시 시도해 주세요.');
-    return;
+  // 콜드스타트(첫 요청)로 네트워크가 실패할 수 있어 최대 2번 시도.
+  let res = null, netErr = false;
+  for(let attempt = 0; attempt < 2; attempt++) {
+    try {
+      res = await fetch('/api/member', {method:'POST',
+        headers:{'Content-Type':'application/json', 'X-Entry-Code': code},
+        body:JSON.stringify({name, email, avatar})});
+      netErr = false;
+      break;
+    } catch(e) {
+      netErr = true;
+      await new Promise(r => setTimeout(r, 1200));   // 잠깐 기다렸다 재시도
+    }
   }
   if(btn){ btn.disabled=false; btn.textContent=btn._label; }
+  if(netErr || !res) {
+    toast('연결이 잠깐 불안정했어요. 한 번만 다시 눌러 주세요.');
+    return;
+  }
   if(res.status === 401) {
     // 401 = 입장 코드가 틀린 경우(서버가 코드부터 검사). 여기서 막고 입장 불가.
     toast('🔒 입장 코드가 올바르지 않아요. 다시 확인해 주세요.');
@@ -728,8 +738,7 @@ async function saveName() {
     return;   // 모달 유지 · 닉네임 저장 안 함
   }
   // 401이 아니면 코드는 통과된 것 (500은 코드가 아니라 DB 쪽 일시 문제)
-  me = {name, email, code, avatar};
-  localStorage.setItem('ca_me', JSON.stringify(me));
+  me = {name, email, code, avatar};   // 세션 메모리에만 유지 (저장 안 함 → 새로고침하면 다시 로그인)
   updateMeBadge();
   document.getElementById('name-modal').classList.remove('show');
   if(!res.ok) toast('입장했어요. (기록 저장이 잠시 불안정할 수 있어요)');
