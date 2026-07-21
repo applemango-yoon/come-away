@@ -1,8 +1,22 @@
 {
-  "functions": {
-    "api/*.py": { "maxDuration": 60 }
-  },
-  "crons": [
-    { "path": "/api/remind", "schedule": "0 22 * * *" }
+  "version": 2,
+  "builds": [
+    { "src": "api/*.py", "use": "@vercel/python" },
+    { "src": "public/index.html", "use": "@vercel/static" }
+  ],
+  "routes": [
+    { "src": "/api/analyze", "dest": "/api/analyze.py" },
+    { "src": "/api/log", "dest": "/api/log.py" },
+    { "src": "/api/edit", "dest": "/api/edit.py" },
+    { "src": "/api/delete", "dest": "/api/delete.py" },
+    { "src": "/api/member", "dest": "/api/member.py" },
+    { "src": "/api/react", "dest": "/api/react.py" },
+    { "src": "/api/shell", "dest": "/api/shell.py" },
+    { "src": "/api/comment", "dest": "/api/comment.py" },
+    { "src": "/api/announce", "dest": "/api/announce.py" },
+    { "src": "/api/backup", "dest": "/api/backup.py" },
+    { "src": "/api/remind", "dest": "/api/remind.py" },
+    { "src": "/api/push", "dest": "/api/push.py" },
+    { "src": "/(.*)", "dest": "/public/index.html" }
   ]
 }
