@@ -8,8 +8,8 @@ KST = timezone(timedelta(hours=9))
 
 
 def code_ok(h):
-    code = os.environ.get('ENTRY_CODE', '')
-    return (not code) or h.headers.get('X-Entry-Code', '') == code
+    code = os.environ.get('ENTRY_CODE', '').strip()
+    return (not code) or h.headers.get('X-Entry-Code', '').strip() == code
 
 
 def sb(path):

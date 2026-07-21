@@ -335,7 +335,7 @@ textarea:focus{border-color:var(--green)}
     </div>
     <p style="font-size:12px;color:var(--ink2);line-height:1.7;margin-bottom:4px">기록에 이름이 함께 표시되고, 멤버들이 서로의 묵상과 나눔을 볼 수 있어요.</p>
     <div class="modal-actions">
-      <button class="modal-save" onclick="saveName()">가게 들어가기 🚪</button>
+      <button class="modal-save" id="save-name-btn" onclick="saveName()">가게 들어가기 🚪</button>
     </div>
   </div>
 </div>
@@ -705,14 +705,34 @@ async function saveName() {
   const code = document.getElementById('code-input').value.trim();
   const name = document.getElementById('name-input').value.trim();
   const email = document.getElementById('email-input').value.trim();
-  if(!name) { document.getElementById('name-input').focus(); return; }
+  if(!name) { toast('닉네임을 입력해 주세요.'); document.getElementById('name-input').focus(); return; }
   const avatar = `${pickedEmoji}|${pickedColor}`;
+  const btn = document.getElementById('save-name-btn');
+  if(btn){ btn._label = btn.textContent; btn.disabled = true; btn.textContent = '확인 중...'; }
+  // 입장 코드 검증 + 멤버 등록을 한 번에. 코드가 틀리면 여기서 막고 입장 안 시킴.
+  let res;
+  try {
+    res = await fetch('/api/member', {method:'POST',
+      headers:{'Content-Type':'application/json', 'X-Entry-Code': code},
+      body:JSON.stringify({name, email, avatar})});
+  } catch(e) {
+    if(btn){ btn.disabled=false; btn.textContent=btn._label; }
+    toast('연결 오류예요. 잠시 후 다시 시도해 주세요.');
+    return;
+  }
+  if(btn){ btn.disabled=false; btn.textContent=btn._label; }
+  if(res.status === 401) {
+    // 401 = 입장 코드가 틀린 경우(서버가 코드부터 검사). 여기서 막고 입장 불가.
+    toast('🔒 입장 코드가 올바르지 않아요. 다시 확인해 주세요.');
+    const ci = document.getElementById('code-input'); ci.focus(); ci.select();
+    return;   // 모달 유지 · 닉네임 저장 안 함
+  }
+  // 401이 아니면 코드는 통과된 것 (500은 코드가 아니라 DB 쪽 일시 문제)
   me = {name, email, code, avatar};
   localStorage.setItem('ca_me', JSON.stringify(me));
   updateMeBadge();
   document.getElementById('name-modal').classList.remove('show');
-  try { await apiFetch('/api/member', {method:'POST', headers:{'Content-Type':'application/json'},
-    body:JSON.stringify({name, email, avatar})}); } catch(e) {}
+  if(!res.ok) toast('입장했어요. (기록 저장이 잠시 불안정할 수 있어요)');
   loadDashboard(true);
 }
 
