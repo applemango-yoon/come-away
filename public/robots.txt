@@ -1,0 +1,4 @@
+User-agent: *
+Allow: /
+
+Sitemap: https://come-away-xi.vercel.app/sitemap.xml

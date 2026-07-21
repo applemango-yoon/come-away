@@ -1,0 +1,209 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>페르소나 & 가치관 콘솔 — Come Away</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Jua&family=Gowun+Dodum&display=swap" rel="stylesheet">
+<style>
+:root{--green:#8aa07a;--green-d:#66795a;--green-l:#e4ebdb;--terra:#cd8a62;--terra-d:#a96b47;--terra-l:#f3ddc9;--parch:#f6f1e7;--cream:#fffdf6;--ink:#4c4237;--ink2:#75675a;--line:#ddd0ba;--line-l:#ece3d2;--yellow:#f5e9c9;}
+*{box-sizing:border-box;margin:0;padding:0;font-family:'Gowun Dodum',sans-serif}
+body{background:var(--parch);color:var(--ink);background-image:radial-gradient(rgba(140,120,90,.06) 1.2px,transparent 1.2px);background-size:22px 22px;padding:26px 16px 60px}
+.wrap{max-width:720px;margin:0 auto}
+h1{font-family:'Jua';font-size:23px;color:var(--terra-d);text-align:center}
+.sub{text-align:center;font-size:13px;color:var(--ink2);margin:6px 0 22px;line-height:1.6}
+.card{background:var(--cream);border:2px solid var(--line-l);border-radius:16px;padding:20px;margin-bottom:18px;box-shadow:0 3px 0 rgba(140,110,80,.07)}
+.step{font-family:'Jua';font-size:16px;color:var(--green-d);margin-bottom:4px;display:flex;align-items:center;gap:8px}
+.step-d{font-size:12.5px;color:var(--ink2);margin-bottom:16px;line-height:1.6}
+label.f{display:block;font-family:'Jua';font-size:12.5px;color:var(--green-d);margin:14px 0 6px}
+input[type=text],textarea{width:100%;padding:11px 13px;border:2px solid var(--line);border-radius:10px;font-size:14px;background:white;color:var(--ink);outline:none;font-family:'Gowun Dodum'}
+input:focus,textarea:focus{border-color:var(--green)}
+textarea{min-height:64px;resize:vertical;line-height:1.7}
+.three{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px}
+@media(max-width:520px){.three{grid-template-columns:1fr}}
+.chips{display:flex;flex-wrap:wrap;gap:7px}
+.chip{border:2px solid var(--line);border-radius:999px;padding:7px 14px;font-size:13px;cursor:pointer;background:white;color:var(--ink2)}
+.chip.on{background:var(--terra);border-color:var(--terra);color:#fff;font-weight:700}
+.scale{display:flex;gap:7px}
+.scale .chip{flex:1;text-align:center;font-size:12px;padding:9px 4px}
+.hint{font-size:11px;color:#b6a88f;margin-top:5px}
+/* audit */
+.audit{border:1px solid var(--line-l);border-radius:12px;overflow:hidden}
+.arow{padding:13px 14px;border-bottom:1px solid var(--line-l)}
+.arow:last-child{border-bottom:none}
+.aloc{font-family:'Jua';font-size:13px;color:var(--ink)}
+.acur{font-size:12.5px;color:var(--ink2);background:var(--yellow);border-radius:8px;padding:6px 10px;margin:6px 0;line-height:1.6}
+.aval{font-size:11px;color:var(--green-d);font-weight:700;margin-bottom:8px}
+.aval b{color:var(--terra-d)}
+.atog{display:flex;gap:7px;margin-bottom:6px}
+.atog .chip{font-size:12px;padding:5px 12px}
+.chip.keep.on{background:var(--green);border-color:var(--green)}
+.chip.fix.on{background:var(--terra);border-color:var(--terra)}
+.anote{display:none}
+.anote.show{display:block}
+.anote input{font-size:12.5px;padding:8px 11px}
+.bigbtn{width:100%;padding:15px;border:none;border-radius:13px;font-family:'Jua';font-size:15px;cursor:pointer;background:var(--terra);color:#fff;box-shadow:0 3px 0 var(--terra-d)}
+.bigbtn:hover{background:var(--terra-d)}
+.mini{font-size:11px;color:var(--ink2);text-align:center;margin-top:10px;line-height:1.6}
+.out{white-space:pre-wrap;background:#fff;border:2px dashed var(--line);border-radius:12px;padding:14px;font-size:12.5px;line-height:1.7;color:var(--ink);margin-top:12px;display:none}
+.out.show{display:block}
+.toast{position:fixed;bottom:22px;left:50%;transform:translateX(-50%);background:var(--ink);color:#fff;padding:11px 20px;border-radius:12px;font-size:13px;display:none;box-shadow:0 6px 20px rgba(0,0,0,.25)}
+.summary-pill{display:inline-block;background:var(--green-l);color:var(--green-d);font-size:11px;font-weight:700;padding:3px 10px;border-radius:999px;margin-left:6px}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>🧭 페르소나 &amp; 가치관 콘솔</h1>
+  <div class="sub">이 앱이 <b>당신다운지</b> 확인하고 조율하는 곳이에요.<br>①에서 나를 정의하고 → ②에서 앱 곳곳을 점검하고 → 맨 아래 "복사"로 저에게 넘기면 반영해 드려요.</div>
+
+  <!-- STEP 1: DEFINE -->
+  <div class="card">
+    <div class="step">① 나를 정의하기</div>
+    <div class="step-d">정답은 없어요. 떠오르는 대로 적어보세요. 이게 이후 모든 문구·리듬의 기준이 돼요.</div>
+
+    <label class="f">한 줄 소개 — 나는 이런 사람 / 왜 이 공간을 만들었나</label>
+    <textarea id="intro" placeholder="예: 말씀 앞에서 조용히 머무는 시간을 좋아하고, 사람들이 부담 없이 매일 조금씩 이어가길 바라며 만들었어요."></textarea>
+
+    <label class="f">나의 핵심 가치 3가지</label>
+    <div class="three">
+      <input type="text" id="v1" placeholder="예: 은혜">
+      <input type="text" id="v2" placeholder="예: 진심">
+      <input type="text" id="v3" placeholder="예: 함께">
+    </div>
+    <div class="hint">한 단어여도 좋고 짧은 문장이어도 좋아요.</div>
+
+    <label class="f">내가 붙잡는 구절 (앵커 구절)</label>
+    <input type="text" id="verse" placeholder="예: 시편 46:10 — 너희는 가만히 있어 내가 하나님 됨을 알지어다">
+    <div class="hint">지금 헤더엔 아가서 6:5가 있어요. 이걸 이 구절로 바꿀 수 있어요.</div>
+
+    <label class="f">앱 태그라인 (한 줄 정체성)</label>
+    <input type="text" id="tagline" placeholder="지금: 작은 오병이어 상점 — 아침 묵상을 나누는 곳">
+
+    <label class="f">말투의 결</label>
+    <div class="chips" id="tone">
+      <span class="chip" data-g="tone" data-v="담백하고 차분한">담백·차분</span>
+      <span class="chip" data-g="tone" data-v="다정하고 따뜻한">다정·따뜻</span>
+      <span class="chip" data-g="tone" data-v="사색적이고 고요한">사색·고요</span>
+      <span class="chip" data-g="tone" data-v="밝고 발랄한">밝고·발랄</span>
+    </div>
+
+    <label class="f">은혜 ↔ 성취 — 스트릭·알림을 어떤 마음으로?</label>
+    <div class="scale chips" id="grace">
+      <span class="chip" data-g="grace" data-v="완전히 은혜 중심 (끊겨도 다그치지 않기)">온전한 은혜</span>
+      <span class="chip" data-g="grace" data-v="은혜에 가깝게, 부드러운 격려">부드러운 격려</span>
+      <span class="chip" data-g="grace" data-v="격려와 동기부여의 균형">균형</span>
+      <span class="chip" data-g="grace" data-v="꾸준함을 적극적으로 자극">성취 자극</span>
+    </div>
+
+    <label class="f">공동체의 약속 (선택) — 모두가 공유할 결</label>
+    <input type="text" id="covenant" placeholder="예: 매일 조금씩 · 정답보다 진심 · 판단하지 않기 · 은혜로 다시 시작">
+  </div>
+
+  <!-- STEP 2: AUDIT -->
+  <div class="card">
+    <div class="step">② 앱 점검하기 <span class="summary-pill" id="audit-pill">0곳 바꿀래요</span></div>
+    <div class="step-d">지금 앱에서 <b>가치가 드러나는 자리</b>들이에요. 각 항목이 위에서 정한 나와 맞으면 "이대로 좋아요", 아니면 "바꿀래요"를 누르고 어떻게 바꾸고 싶은지 메모하세요.</div>
+    <div class="audit" id="audit"></div>
+  </div>
+
+  <!-- STEP 3: EXPORT -->
+  <div class="card">
+    <div class="step">③ 나에게 넘기기</div>
+    <div class="step-d">아래 버튼을 누르면 정의 + 바꿀 항목이 한 장으로 정리돼요. 복사해서 대화창에 붙여넣어 주시면, 그대로 앱에 반영하고 다시 점검표를 만들어 드려요.</div>
+    <button class="bigbtn" onclick="exportSpec()">📋 내 페르소나 설정 복사하기</button>
+    <div class="mini">복사가 안 되면 아래 상자의 내용을 직접 드래그해서 복사하세요.</div>
+    <div class="out" id="out"></div>
+  </div>
+</div>
+<div class="toast" id="toast"></div>
+
+<script>
+const AUDIT = [
+  {loc:'헤더 앵커 구절', cur:'"Turn your eyes away from me, for they overwhelm me." — 아가 6:5', val:'정체성 · 영성의 뿌리'},
+  {loc:'앱 태그라인', cur:'작은 오병이어 상점 — 아침 묵상을 나누는 곳', val:'은유 · 첫인상의 따뜻함'},
+  {loc:'묵상 입력 질문', cur:'오늘 이 말씀은 당신에게 어떻게 와닿았나요?', val:'묵상하는 방식 (내면화 vs 지식)'},
+  {loc:'액션 플랜 안내', cur:'딱 하나만요 — 작고 소소해도 괜찮아요.', val:'작은 순종 · 부담 낮추기'},
+  {loc:'미묵상 배너', cur:'🌅 오늘 아직 묵상 기록이 없어요 — 잠시 시간을 내볼까요?', val:'격려냐 압박이냐'},
+  {loc:'연속(스트릭) 문구', cur:'N일 연속 묵상 중 🔥 · "Keep going — He is waiting"', val:'성취감 vs 은혜'},
+  {loc:'빵 배너', cur:'🍞 오늘의 빵이 아직 따끈해요 — 나누지 않으면 내일 사라져요!', val:'일용할 양식 · 나눔의 촉구'},
+  {loc:'오병이어(빵·물고기) 나눔', cur:'하루 한 개의 빵을 고마운 멤버에게 · 2빵=1물고기', val:'관대함 · 감사의 문화'},
+  {loc:'리액션', cur:'🙏 ❤️ 🔥 (기도해요 · 사랑 · 뜨거움)', val:'서로를 지지하는 방식'},
+  {loc:'캐릭터', cur:'색깔 + 성경 동물/열매 (양·비둘기·포도·올리브…)', val:'미학 · 신앙 상징'},
+  {loc:'아침 알림 메일/푸시', cur:'🍞 오늘의 빵이 따끈해요 — 아침 묵상 시간이에요', val:'하루를 여는 첫 목소리'},
+  {loc:'빈 화면(광장)', cur:'아직 광장에 올라온 묵상이 없어요 🙏 첫 묵상을 나눠보세요.', val:'처음 온 사람을 맞는 태도'},
+];
+const state = { tone:'', grace:'', audit: AUDIT.map(()=>({choice:'', note:''})) };
+
+// chip groups (single select)
+document.querySelectorAll('.chip[data-g]').forEach(c=>{
+  c.onclick = ()=>{
+    const g = c.dataset.g;
+    document.querySelectorAll(`.chip[data-g="${g}"]`).forEach(x=>x.classList.toggle('on', x===c));
+    state[g] = c.dataset.v;
+  };
+});
+
+// build audit rows
+const auditEl = document.getElementById('audit');
+auditEl.innerHTML = AUDIT.map((a,i)=>`
+  <div class="arow">
+    <div class="aloc">${a.loc}</div>
+    <div class="acur">지금: ${a.cur}</div>
+    <div class="aval">표현하는 가치 · <b>${a.val}</b></div>
+    <div class="atog">
+      <span class="chip keep" onclick="setChoice(${i},'keep',this)">✓ 이대로 좋아요</span>
+      <span class="chip fix" onclick="setChoice(${i},'fix',this)">✎ 바꿀래요</span>
+    </div>
+    <div class="anote" id="note-${i}"><input type="text" placeholder="어떻게 바꾸고 싶은지 한마디 (예: 더 담백하게 / 이 구절로 / 죄책감 빼고)" oninput="state.audit[${i}].note=this.value"></div>
+  </div>`).join('');
+
+function setChoice(i, choice, el){
+  state.audit[i].choice = choice;
+  const row = el.closest('.arow');
+  row.querySelectorAll('.chip').forEach(c=>c.classList.remove('on'));
+  el.classList.add('on');
+  document.getElementById('note-'+i).classList.toggle('show', choice==='fix');
+  const fixes = state.audit.filter(a=>a.choice==='fix').length;
+  document.getElementById('audit-pill').textContent = `${fixes}곳 바꿀래요`;
+}
+
+function val(id){ return document.getElementById(id).value.trim(); }
+function exportSpec(){
+  const values = [val('v1'),val('v2'),val('v3')].filter(Boolean).join(' · ') || '(미작성)';
+  let s = `[ Come Away — 나의 페르소나 & 가치관 ]\n\n`;
+  s += `한 줄 소개: ${val('intro')||'(미작성)'}\n`;
+  s += `핵심 가치: ${values}\n`;
+  s += `앵커 구절: ${val('verse')||'(미작성)'}\n`;
+  s += `태그라인: ${val('tagline')||'(그대로)'}\n`;
+  s += `말투의 결: ${state.tone||'(미선택)'}\n`;
+  s += `은혜↔성취: ${state.grace||'(미선택)'}\n`;
+  s += `공동체 약속: ${val('covenant')||'(없음)'}\n`;
+  const fixes = AUDIT.map((a,i)=>({a, ...state.audit[i]})).filter(x=>x.choice==='fix');
+  s += `\n[ 바꾸고 싶은 곳 (${fixes.length}) ]\n`;
+  if(fixes.length){
+    fixes.forEach(x=>{ s += `- ${x.a.loc}: ${x.note||'(어떻게 바꿀지 상의)'}\n`; });
+  } else {
+    s += `- 없음 (지금 이대로 좋음)\n`;
+  }
+  const keeps = state.audit.filter(a=>a.choice==='keep').length;
+  s += `\n(점검: ✓유지 ${keeps}곳 · ✎변경 ${fixes.length}곳 · 미확인 ${AUDIT.length-keeps-fixes.length}곳)`;
+  document.getElementById('out').textContent = s;
+  document.getElementById('out').classList.add('show');
+  copyText(s);
+}
+function copyText(t){
+  const done = ()=>toast('복사됐어요! 대화창에 붙여넣어 주세요 📋');
+  if(navigator.clipboard && window.isSecureContext){ navigator.clipboard.writeText(t).then(done).catch(fallback); }
+  else fallback();
+  function fallback(){
+    const ta=document.createElement('textarea'); ta.value=t; ta.style.cssText='position:fixed;top:-9999px';
+    document.body.appendChild(ta); ta.select();
+    try{document.execCommand('copy');done();}catch(e){toast('아래 상자에서 직접 복사해 주세요.');}
+    document.body.removeChild(ta);
+  }
+}
+function toast(m){ const t=document.getElementById('toast'); t.textContent=m; t.style.display='block'; clearTimeout(t._t); t._t=setTimeout(()=>t.style.display='none',3200); }
+</script>
+</body>
+</html>

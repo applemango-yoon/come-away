@@ -1,14 +1,8 @@
 {
-  "version": 2,
-  "builds": [
-    {"src": "api/*.py", "use": "@vercel/python"},
-    {"src": "public/index.html", "use": "@vercel/static"}
-  ],
-  "routes": [
-    {"src": "/api/analyze", "dest": "/api/analyze.py"},
-    {"src": "/api/log", "dest": "/api/log.py"},
-    {"src": "/api/delete", "dest": "/api/delete.py"},
-    {"src": "/api/edit", "dest": "/api/edit.py"},
-    {"src": "/(.*)", "dest": "/public/index.html"}
+  "functions": {
+    "api/*.py": { "maxDuration": 60 }
+  },
+  "crons": [
+    { "path": "/api/remind", "schedule": "0 22 * * *" }
   ]
 }

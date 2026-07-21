@@ -4,9 +4,10 @@ import urllib.parse
 import urllib.request
 from http.server import BaseHTTPRequestHandler
 
+ADMINS = [a.strip() for a in os.environ.get('ADMIN_NAMES', '').split(',') if a.strip()]
+
 
 def code_ok(h):
-    # 입장 코드: Vercel 환경변수 ENTRY_CODE 설정 시에만 검사
     code = os.environ.get('ENTRY_CODE', '')
     return (not code) or h.headers.get('X-Entry-Code', '') == code
 
@@ -27,6 +28,16 @@ def sb(method, path, data=None):
 class handler(BaseHTTPRequestHandler):
     def log_message(self, *a): pass
 
+    def do_GET(self):
+        if not code_ok(self):
+            self._send_json({'error': 'bad_code'}, 401)
+            return
+        try:
+            rows = sb('GET', 'announcements?select=id,title,body,author,active&order=created_at.desc') or []
+            self._send_json([r for r in rows if r.get('active')])
+        except Exception as e:
+            self._send_json({'error': str(e)}, 500)
+
     def do_POST(self):
         if not code_ok(self):
             self._send_json({'error': 'bad_code', 'message': '입장 코드가 올바르지 않아요.'}, 401)
@@ -34,28 +45,28 @@ class handler(BaseHTTPRequestHandler):
         try:
             length = int(self.headers.get('Content-Length', 0))
             body = json.loads(self.rfile.read(length))
-            entry_id = body.get('id')
             author = (body.get('author') or '').strip()
-
-            # 작성자 검증: 본인 기록만 수정 가능
-            rows = sb('GET', f'entries?id=eq.{urllib.parse.quote(str(entry_id))}&select=id,author')
-            if not rows:
-                self._send_json({'error': 'not_found', 'message': '기록을 찾을 수 없어요.'}, 404)
+            if author not in ADMINS:
+                self._send_json({'error': 'forbidden', 'message': '관리자만 칠판을 쓸 수 있어요.'}, 403)
                 return
-            if rows[0].get('author') and rows[0]['author'] != author:
-                self._send_json({'error': 'forbidden',
-                                 'message': f"'{rows[0]['author']}'님의 기록이에요. 본인 기록만 수정할 수 있어요."}, 403)
-                return
+            action = body.get('action', 'add')
 
-            patch = {
-                'summary': body.get('summary', ''),
-                'action': body.get('action', ''),
-                'words': body.get('words', [])
-            }
-            if 'public' in body:
-                patch['public'] = bool(body.get('public'))
-            sb('PATCH', f'entries?id=eq.{urllib.parse.quote(str(entry_id))}', patch)
-            self._send_json({'ok': True})
+            if action == 'add':
+                title = (body.get('title') or '').strip()[:80]
+                text = (body.get('body') or '').strip()[:500]
+                if not title:
+                    self._send_json({'error': 'bad_request', 'message': '제목을 입력해 주세요.'}, 400)
+                    return
+                sb('POST', 'announcements', {'title': title, 'body': text, 'author': author, 'active': True})
+                self._send_json({'ok': True})
+
+            elif action == 'delete':
+                aid = body.get('id')
+                sb('DELETE', 'announcements?id=eq.' + urllib.parse.quote(str(aid)))
+                self._send_json({'ok': True})
+
+            else:
+                self._send_json({'error': 'bad_request'}, 400)
         except Exception as e:
             self._send_json({'error': str(e)}, 500)
 

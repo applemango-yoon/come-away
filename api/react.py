@@ -1,8 +1,11 @@
 import json
 import os
+import urllib.error
 import urllib.parse
 import urllib.request
 from http.server import BaseHTTPRequestHandler
+
+ALLOWED = ['🙏', '❤️', '🔥']
 
 
 def code_ok(h):
@@ -27,35 +30,43 @@ def sb(method, path, data=None):
 class handler(BaseHTTPRequestHandler):
     def log_message(self, *a): pass
 
-    def do_POST(self):
+    def do_GET(self):
         if not code_ok(self):
             self._send_json({'error': 'bad_code', 'message': '입장 코드가 올바르지 않아요.'}, 401)
             return
         try:
+            rows = sb('GET', 'reactions?select=entry_id,author,emoji') or []
+            self._send_json(rows)
+        except Exception as e:
+            self._send_json({'error': str(e)}, 500)
+
+    def do_POST(self):
+        if not code_ok(self):
+            self._send_json({'error': 'bad_code', 'message': '입장 코드가 올바르지 않아요.'}, 401)
+            return
+        # 토글: 이미 눌렀으면 취소, 아니면 추가
+        try:
             length = int(self.headers.get('Content-Length', 0))
             body = json.loads(self.rfile.read(length))
-            entry_id = body.get('id')
-            author = (body.get('author') or '').strip()
-
-            # 작성자 검증: 본인 기록만 수정 가능
-            rows = sb('GET', f'entries?id=eq.{urllib.parse.quote(str(entry_id))}&select=id,author')
-            if not rows:
-                self._send_json({'error': 'not_found', 'message': '기록을 찾을 수 없어요.'}, 404)
+            entry_id = body.get('entry_id')
+            author = (body.get('author') or '').strip()[:30]
+            emoji = body.get('emoji', '')
+            if not author or emoji not in ALLOWED or not entry_id:
+                self._send_json({'error': 'bad_request'}, 400)
                 return
-            if rows[0].get('author') and rows[0]['author'] != author:
-                self._send_json({'error': 'forbidden',
-                                 'message': f"'{rows[0]['author']}'님의 기록이에요. 본인 기록만 수정할 수 있어요."}, 403)
-                return
-
-            patch = {
-                'summary': body.get('summary', ''),
-                'action': body.get('action', ''),
-                'words': body.get('words', [])
-            }
-            if 'public' in body:
-                patch['public'] = bool(body.get('public'))
-            sb('PATCH', f'entries?id=eq.{urllib.parse.quote(str(entry_id))}', patch)
-            self._send_json({'ok': True})
+            q = (f"reactions?entry_id=eq.{urllib.parse.quote(str(entry_id))}"
+                 f"&author=eq.{urllib.parse.quote(author)}&emoji=eq.{urllib.parse.quote(emoji)}")
+            existing = sb('GET', q + '&select=id')
+            if existing:
+                sb('DELETE', q)
+                self._send_json({'ok': True, 'toggled': 'off'})
+            else:
+                try:
+                    sb('POST', 'reactions', {'entry_id': entry_id, 'author': author, 'emoji': emoji})
+                except urllib.error.HTTPError as he:
+                    if he.code != 409:
+                        raise
+                self._send_json({'ok': True, 'toggled': 'on'})
         except Exception as e:
             self._send_json({'error': str(e)}, 500)
 

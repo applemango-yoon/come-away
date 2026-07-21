@@ -1,6 +1,5 @@
 import json
 import os
-import urllib.parse
 import urllib.request
 from http.server import BaseHTTPRequestHandler
 
@@ -11,12 +10,15 @@ def code_ok(h):
     return (not code) or h.headers.get('X-Entry-Code', '') == code
 
 
-def sb(method, path, data=None):
+def sb(method, path, data=None, extra_headers=None):
     url = os.environ['SUPABASE_URL'] + '/rest/v1/' + path
     req = urllib.request.Request(url, method=method)
     req.add_header('apikey', os.environ['SUPABASE_ANON_KEY'])
     req.add_header('Authorization', 'Bearer ' + os.environ['SUPABASE_ANON_KEY'])
     req.add_header('Content-Type', 'application/json')
+    if extra_headers:
+        for k, v in extra_headers.items():
+            req.add_header(k, v)
     if data is not None:
         req.data = json.dumps(data).encode()
     with urllib.request.urlopen(req) as r:
@@ -27,34 +29,38 @@ def sb(method, path, data=None):
 class handler(BaseHTTPRequestHandler):
     def log_message(self, *a): pass
 
+    def do_GET(self):
+        if not code_ok(self):
+            self._send_json({'error': 'bad_code', 'message': '입장 코드가 올바르지 않아요.'}, 401)
+            return
+        # 멤버 목록 (이메일은 노출하지 않음)
+        try:
+            rows = sb('GET', 'members?select=name,avatar&order=created_at.asc') or []
+            self._send_json([{'name': r['name'], 'avatar': r.get('avatar') or '🐑'} for r in rows])
+        except Exception as e:
+            self._send_json({'error': str(e)}, 500)
+
     def do_POST(self):
         if not code_ok(self):
             self._send_json({'error': 'bad_code', 'message': '입장 코드가 올바르지 않아요.'}, 401)
             return
+        # 닉네임 등록/이메일 업데이트 (upsert)
         try:
             length = int(self.headers.get('Content-Length', 0))
             body = json.loads(self.rfile.read(length))
-            entry_id = body.get('id')
-            author = (body.get('author') or '').strip()
-
-            # 작성자 검증: 본인 기록만 수정 가능
-            rows = sb('GET', f'entries?id=eq.{urllib.parse.quote(str(entry_id))}&select=id,author')
-            if not rows:
-                self._send_json({'error': 'not_found', 'message': '기록을 찾을 수 없어요.'}, 404)
+            name = (body.get('name') or '').strip()[:30]
+            email = (body.get('email') or '').strip()[:100]
+            avatar = (body.get('avatar') or '').strip()[:24]  # "🕊️|#cddbe1" 형태 (이모지+색) 수용
+            if not name:
+                self._send_json({'error': 'empty', 'message': '이름을 입력해 주세요.'}, 400)
                 return
-            if rows[0].get('author') and rows[0]['author'] != author:
-                self._send_json({'error': 'forbidden',
-                                 'message': f"'{rows[0]['author']}'님의 기록이에요. 본인 기록만 수정할 수 있어요."}, 403)
-                return
-
-            patch = {
-                'summary': body.get('summary', ''),
-                'action': body.get('action', ''),
-                'words': body.get('words', [])
-            }
-            if 'public' in body:
-                patch['public'] = bool(body.get('public'))
-            sb('PATCH', f'entries?id=eq.{urllib.parse.quote(str(entry_id))}', patch)
+            payload = {'name': name}
+            if email:
+                payload['email'] = email
+            if avatar:
+                payload['avatar'] = avatar
+            sb('POST', 'members?on_conflict=name', payload,
+               extra_headers={'Prefer': 'resolution=merge-duplicates,return=minimal'})
             self._send_json({'ok': True})
         except Exception as e:
             self._send_json({'error': str(e)}, 500)
