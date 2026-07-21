@@ -711,15 +711,19 @@ async function saveName() {
   const avatar = `${pickedEmoji}|${pickedColor}`;
   const btn = document.getElementById('save-name-btn');
   if(btn){ btn._label = btn.textContent; btn.disabled = true; btn.textContent = '확인 중...'; }
-  // 입장 코드 검증 + 멤버 등록을 한 번에. 코드가 틀리면 여기서 막고 입장 안 시킴.
-  // 콜드스타트(첫 요청)로 네트워크가 실패할 수 있어 최대 2번 시도.
+  // 입장 코드 검증 + 멤버 등록을 한 번에. 코드가 틀리면 서버가 401을 주고, 그때만 입장을 막는다.
+  // 콜드스타트(첫 요청)로 네트워크가 끊기거나 서버가 잠깐 5xx를 낼 수 있어 최대 3번까지 재시도.
   let res = null, netErr = false;
-  for(let attempt = 0; attempt < 2; attempt++) {
+  for(let attempt = 0; attempt < 3; attempt++) {
     try {
       res = await fetch('/api/member', {method:'POST',
         headers:{'Content-Type':'application/json', 'X-Entry-Code': code},
         body:JSON.stringify({name, email, avatar})});
       netErr = false;
+      if(res.status >= 500 && attempt < 2) {   // 서버가 잠깐 삐끗(콜드스타트 등) → 잠시 후 재시도
+        await new Promise(r => setTimeout(r, 1200));
+        continue;
+      }
       break;
     } catch(e) {
       netErr = true;
@@ -732,22 +736,24 @@ async function saveName() {
     return;
   }
   if(res.status === 401) {
-    // 401 = 입장 코드가 틀린 경우(서버가 코드부터 검사). 여기서 막고 입장 불가.
+    // 401 = 입장 코드가 틀린 경우(서버가 코드부터 검사). 여기서만 막는다.
     toast('🔒 입장 코드가 틀렸어요. 코드를 다시 확인해 주세요.');
     const ci = document.getElementById('code-input'); ci.focus(); ci.select();
     return;   // 모달 유지 · 입장 안 시킴
   }
-  if(!res.ok) {
-    // 코드 문제가 아닌 다른 오류(예: 서버·DB 일시 문제). 서버가 준 실제 메시지를 그대로 보여주고 입장은 막음.
-    let msg = '잠깐 문제가 있었어요. 잠시 후 다시 시도해 주세요.';
+  if(res.status === 400) {
+    // 입력값 문제(예: 이름 누락) — 서버 메시지 보여주고 막는다.
+    let msg = '입력한 내용을 다시 확인해 주세요.';
     try { const j = await res.json(); if(j && j.message) msg = j.message; } catch(e) {}
     toast(msg);
     return;
   }
-  // 여기까지 왔으면 성공(200) = 코드 통과 + 등록 완료. 이제만 입장.
+  // 401·400이 아니면 코드는 통과된 것(서버가 코드부터 검사하므로).
+  // 기록 저장(DB)이 잠깐 삐끗해 500이 나도, 코드는 맞았으니 입장은 시킨다.
   me = {name, email, code, avatar};   // 세션 메모리에만 유지 (저장 안 함 → 새로고침하면 다시 로그인)
   updateMeBadge();
   document.getElementById('name-modal').classList.remove('show');
+  if(!res.ok) toast('입장했어요. (기록 저장이 잠시 불안정할 수 있어요)');
   loadDashboard(true);
 }
 

@@ -8,8 +8,8 @@ from http.server import BaseHTTPRequestHandler
 
 def code_ok(h):
     # 입장 코드: Vercel 환경변수 ENTRY_CODE 설정 시에만 검사
-    code = os.environ.get('ENTRY_CODE', '').strip()
-    return (not code) or h.headers.get('X-Entry-Code', '').strip() == code
+    code = os.environ.get('ENTRY_CODE', '').strip().lower()
+    return (not code) or h.headers.get('X-Entry-Code', '').strip().lower() == code
 
 
 def mark_highlights(text):

@@ -8,8 +8,8 @@ ADMINS = [a.strip() for a in os.environ.get('ADMIN_NAMES', '').split(',') if a.s
 
 
 def code_ok(h):
-    code = os.environ.get('ENTRY_CODE', '').strip()
-    return (not code) or h.headers.get('X-Entry-Code', '').strip() == code
+    code = os.environ.get('ENTRY_CODE', '').strip().lower()
+    return (not code) or h.headers.get('X-Entry-Code', '').strip().lower() == code
 
 
 def sb(method, path, data=None):
