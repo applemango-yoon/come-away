@@ -843,11 +843,13 @@ function speakTrans(key) {
   speechSynthesis.speak(u);
 }
 function render(data) {
-  lastTrans = data.translations;
+  data = data || {};
+  const trans = data.translations || {};
+  lastTrans = trans;
   lastAnalysis = data;
   const tbody = document.getElementById('trans-body');
   tbody.innerHTML = ['개역개정','새번역','NKJV','NASB'].map(v =>
-    data.translations[v] ? `<tr><td>${v}${(v==='NKJV'||v==='NASB')?`<button class="tts-btn" title="영어로 듣기" onclick="speakTrans('${v}')">🔊</button>`:''}</td><td>${data.translations[v]}</td></tr>` : ''
+    trans[v] ? `<tr><td>${v}${(v==='NKJV'||v==='NASB')?`<button class="tts-btn" title="영어로 듣기" onclick="speakTrans('${v}')">🔊</button>`:''}</td><td>${trans[v]}</td></tr>` : ''
   ).join('');
   document.getElementById('words-body').innerHTML = (data.words||[]).map((w,i) => {
     return `<div class="word-card">
