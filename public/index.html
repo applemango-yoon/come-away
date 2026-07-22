@@ -854,7 +854,7 @@ function render(data) {
   document.getElementById('words-body').innerHTML = (data.words||[]).map((w,i) => {
     return `<div class="word-card">
       <div class="word-num">${i+1} <span class="pos-badge">${esc(w.pos||'')}</span></div>
-      <div class="word-title">${esc(w.korean)}<span>${esc(w.english||'')}</span></div>
+      <div class="word-title">${esc(w.english||w.korean||'')}${w.korean?`<span>${esc(w.korean)}</span>`:''}</div>
       <div class="word-row"><span class="wk">의미</span><span class="wv">${esc(w.meaning||'')}</span></div>
       <div class="word-row"><span class="wk">뉘앙스</span><span class="wv">${esc(w.nuance||'')}</span></div>
     </div>`;
