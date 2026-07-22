@@ -611,7 +611,8 @@ function apiFetch(url, opts) {
   opts = opts || {};
   opts.headers = Object.assign({'X-Entry-Code': (me && me.code) || ''}, opts.headers || {});
   return fetch(url, opts).then(res => {
-    if(res.status === 401) { toast('입장 코드가 올바르지 않아요.'); openNameModal(); }
+    // 로그인(코드 입력) 전에는 401이 당연하므로 조용히 둔다. 로그인한 뒤의 401만 안내.
+    if(res.status === 401 && me && me.code) { toast('입장 코드가 올바르지 않아요.'); openNameModal(); }
     return res;
   });
 }
@@ -900,6 +901,7 @@ function shareKakao() {
 
 /* ── 데이터 로드 ── */
 async function loadDashboard(force) {
+  if(!me || !me.code) return;   // 로그인(입장 코드 입력) 전에는 대시보드를 부르지 않는다 → 첫 화면에서 401 안내가 뜨지 않음
   try {
     const [entRes, memRes, rxRes, shRes, cmRes, anRes] = await Promise.all([
       apiFetch('/api/log?me=' + encodeURIComponent(me && me.name ? me.name : '')), apiFetch('/api/member'), apiFetch('/api/react'),
