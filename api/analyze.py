@@ -52,6 +52,14 @@ def providers():
         out.append(('openai', os.environ['AI_API_URL'],
                     os.environ.get('AI_API_KEY', ''),
                     m or 'meta-llama/llama-3.3-70b-instruct'))
+    # 구글 제미나이 (무료·카드 불필요, Vercel에서 안정적). OpenAI 호환 엔드포인트 사용.
+    # 모델명은 시기에 따라 바뀔 수 있어 후보 여러 개를 순서대로 시도 → 하나만 되면 통과.
+    if os.environ.get('GEMINI_API_KEY'):
+        gurl = 'https://generativelanguage.googleapis.com/v1beta/openai/chat/completions'
+        gkey = os.environ['GEMINI_API_KEY']
+        gmodels = [m] if m else ['gemini-2.5-flash', 'gemini-2.0-flash', 'gemini-flash-latest', 'gemini-1.5-flash']
+        for gm in gmodels:
+            out.append(('openai', gurl, gkey, gm))
     if os.environ.get('ANTHROPIC_API_KEY'):
         out.append(('anthropic', 'https://api.anthropic.com/v1/messages',
                     os.environ['ANTHROPIC_API_KEY'],
@@ -158,7 +166,7 @@ def call_ai(passage, strict=False):
             if kind == 'anthropic':
                 payload = json.dumps({
                     'model': model,
-                    'max_tokens': 2048,
+                    'max_tokens': 8000,   # 여러 절 범위도 안 잘리게 넉넉히 (실제 쓴 만큼만 과금)
                     'temperature': 0.3,
                     'messages': [{'role': 'user', 'content': content}]
                 }).encode()
@@ -171,7 +179,7 @@ def call_ai(passage, strict=False):
                 payload = json.dumps({
                     'model': model,
                     'messages': [{'role': 'user', 'content': content}],
-                    'max_tokens': 2048,
+                    'max_tokens': 4096,
                     'temperature': 0.3
                 }).encode()
                 headers = {'Authorization': 'Bearer ' + key,
