@@ -294,7 +294,7 @@ textarea:focus{border-color:var(--green)}
 <div class="header">
   <div class="shop-sign"><h1>🐟 Come Away 🍞</h1></div>
   <div class="header-sub">작은 오병이어 상점 — 따뜻한 말씀 빵을 굽고 커피 한 잔과 함께 누리는 아침 ☕<br>"How good and pleasant it is when God's people dwell together in unity!" — 시편 133:1</div>
-  <button class="me-badge" id="me-badge" onclick="openNameModal()">🙋 닉네임</button>
+  <button class="me-badge" id="me-badge" onclick="openNameModal()">🚪 로그인</button>
 </div>
 
 <div class="tab-bar">
@@ -307,11 +307,8 @@ textarea:focus{border-color:var(--green)}
 <!-- 닉네임 모달 -->
 <div class="modal-backdrop" id="name-modal">
   <div class="modal">
-    <div class="modal-title">🚪 &nbsp;어서 오세요! 어떻게 불러드릴까요?</div>
-    <div class="modal-field">
-      <label class="modal-label">입장 코드</label>
-      <input type="text" id="code-input" maxlength="40" placeholder="커뮤니티에서 받은 코드" onkeydown="if(event.key==='Enter')saveName()">
-    </div>
+    <div class="modal-title">🚪 &nbsp;들어가기</div>
+    <p style="font-size:12px;color:var(--ink2);line-height:1.7;margin:-4px 0 12px">관리자가 등록한 이름으로 들어와요. 이미 등록된 분은 <b>이름만</b> 입력하면 돼요.</p>
     <div class="modal-field">
       <label class="modal-label">이름 / 닉네임</label>
       <input type="text" id="name-input" maxlength="30" placeholder="예: 망고" onkeydown="if(event.key==='Enter')saveName()">
@@ -581,6 +578,15 @@ textarea:focus{border-color:var(--green)}
     <div id="chalk-manage" style="margin-top:14px"></div>
   </div>
   <div class="card">
+    <div class="card-title">👥 멤버 관리 (승인)</div>
+    <p style="font-size:12px;color:var(--ink2);line-height:1.6;margin-bottom:10px">여기서 이름을 추가하면 그 사람이 앱에 <b>이름만으로 입장</b>할 수 있어요. 추가 안 된 이름은 입장 못 해요.</p>
+    <div style="display:flex;gap:8px;margin-bottom:12px">
+      <input type="text" id="new-member-name" maxlength="30" placeholder="새 멤버 이름 (예: 하늘)" onkeydown="if(event.key==='Enter')adminAddMember()" style="flex:1;margin-bottom:0">
+      <button class="flash-btn" style="width:auto;white-space:nowrap;margin:0" onclick="adminAddMember()">+ 추가</button>
+    </div>
+    <div id="member-manage"></div>
+  </div>
+  <div class="card">
     <div class="card-title">🏆 멤버 성취 트래킹</div>
     <div style="overflow-x:auto"><table class="week-grid" id="admin-table"></table></div>
   </div>
@@ -609,10 +615,14 @@ let activeTab = 'study';
 /* ── 공통 헬퍼 ── */
 function apiFetch(url, opts) {
   opts = opts || {};
-  opts.headers = Object.assign({'X-Entry-Code': (me && me.code) || ''}, opts.headers || {});
+  opts.headers = Object.assign({'X-Member': (me && me.name) || ''}, opts.headers || {});
   return fetch(url, opts).then(res => {
-    // 로그인(코드 입력) 전에는 401이 당연하므로 조용히 둔다. 로그인한 뒤의 401만 안내.
-    if(res.status === 401 && me && me.code) { toast('입장 코드가 올바르지 않아요.'); openNameModal(); }
+    if(res.status === 401) {
+      // 로그인 안 됨(또는 승인 취소됨) → 로그인 모달 안내 (이미 떠 있으면 중복 안내 안 함)
+      me = null; updateMeBadge();
+      const modal = document.getElementById('name-modal');
+      if(modal && !modal.classList.contains('show')) { toast('먼저 로그인해 주세요 🚪 (오른쪽 위)'); openNameModal(); }
+    }
     return res;
   });
 }
@@ -630,6 +640,7 @@ function toast(msg) {
   t._timer = setTimeout(()=>{ t.style.display='none'; }, 3500);
 }
 function isAdmin(name) {
+  if(me && me.admin && me.name === name) return true;
   return !!(shellData && shellData.admins && shellData.admins.includes(name));
 }
 
@@ -652,13 +663,13 @@ const MOTIF_NAME = {};
 [...ANIMALS, ...FRUITS].forEach(m => MOTIF_NAME[m.e] = m.n);
 const DEFAULT_AVA = '🐑|#c9d6bd';
 let pickedEmoji = '🐑', pickedColor = '#c9d6bd';
+let avatarTouched = false;   // 로그인 모달에서 사용자가 캐릭터를 실제로 바꿨는지
 
 function loadMe() {
-  // 매 방문(새로고침)마다 로그아웃 상태로 시작 — 항상 입장 코드부터 다시 받음
+  // 로그인 전 상태로 시작. 메인 페이지는 그대로 보이고, 로그인은 오른쪽 위 캐릭터 버튼으로.
   me = null;
   try { localStorage.removeItem('ca_me'); } catch(e) {}
   updateMeBadge();
-  openNameModal();
 }
 function avatarRaw(name) {
   if(me && me.name === name && me.avatar) return me.avatar;
@@ -678,7 +689,7 @@ function avatarHtml(name, cls) {
 function colorName(hex) { const c = COLORS.find(c=>c.bg===hex); return c ? c.name : ''; }
 function updateMeBadge() {
   const b = document.getElementById('me-badge');
-  b.innerHTML = me && me.name ? `${avatarHtml(me.name)} ${esc(me.name)}` : '🙋 닉네임';
+  b.innerHTML = me && me.name ? `${avatarHtml(me.name)} ${esc(me.name)}` : '🚪 로그인';
 }
 function renderAvatarPick() {
   document.getElementById('color-pick').innerHTML = COLORS.map(c =>
@@ -691,74 +702,59 @@ function renderAvatarPick() {
   prev.textContent = pickedEmoji; prev.style.background = pickedColor;
   document.getElementById('ava-name').textContent = `${colorName(pickedColor)} ${MOTIF_NAME[pickedEmoji]||''}`.trim();
 }
-function pickColor(bg) { pickedColor = bg; renderAvatarPick(); }
-function pickMotif(e) { pickedEmoji = e; renderAvatarPick(); }
+function pickColor(bg) { pickedColor = bg; avatarTouched = true; renderAvatarPick(); }
+function pickMotif(e) { pickedEmoji = e; avatarTouched = true; renderAvatarPick(); }
 function openNameModal() {
-  document.getElementById('code-input').value = me && me.code ? me.code : '';
   document.getElementById('name-input').value = me && me.name ? me.name : '';
   document.getElementById('email-input').value = me && me.email ? me.email : '';
   const parsed = avatarParse((me && me.avatar) || DEFAULT_AVA);
   pickedEmoji = parsed.emoji; pickedColor = parsed.bg;
   if(!COLORS.some(c=>c.bg===pickedColor)) pickedColor = '#c9d6bd';
+  avatarTouched = false;
   renderAvatarPick();
   document.getElementById('name-modal').classList.add('show');
   setTimeout(()=>document.getElementById('name-input').focus(), 100);
 }
 async function saveName() {
-  const code = document.getElementById('code-input').value.trim();
   const name = document.getElementById('name-input').value.trim();
   const email = document.getElementById('email-input').value.trim();
-  if(!name) { toast('닉네임을 입력해 주세요.'); document.getElementById('name-input').focus(); return; }
-  const avatar = `${pickedEmoji}|${pickedColor}`;
+  if(!name) { toast('이름을 입력해 주세요.'); document.getElementById('name-input').focus(); return; }
   const btn = document.getElementById('save-name-btn');
   if(btn){ btn._label = btn.textContent; btn.disabled = true; btn.textContent = '확인 중...'; }
-  // 입장 코드 검증 + 멤버 등록을 한 번에. 코드가 틀리면 서버가 401을 주고, 그때만 입장을 막는다.
-  // 콜드스타트(첫 요청)로 네트워크가 끊기거나 서버가 잠깐 5xx를 낼 수 있어 최대 3번까지 재시도.
-  let res = null, netErr = false;
+  // 관리자가 승인한 이름인지 확인 (인증 불필요한 로그인 조회). 콜드스타트 대비 최대 3회 재시도.
+  let j = null, netErr = false;
   for(let attempt = 0; attempt < 3; attempt++) {
     try {
-      res = await fetch('/api/member', {method:'POST',
-        headers:{'Content-Type':'application/json', 'X-Entry-Code': code},
-        body:JSON.stringify({name, email, avatar})});
+      const res = await fetch('/api/member?login=' + encodeURIComponent(name));
+      if(res.status >= 500 && attempt < 2) { await new Promise(r => setTimeout(r, 1000)); continue; }
+      j = await res.json().catch(() => null);
       netErr = false;
-      if(res.status >= 500 && attempt < 2) {   // 서버가 잠깐 삐끗(콜드스타트 등) → 잠시 후 재시도
-        await new Promise(r => setTimeout(r, 1200));
-        continue;
-      }
       break;
     } catch(e) {
       netErr = true;
-      await new Promise(r => setTimeout(r, 1200));   // 잠깐 기다렸다 재시도
+      await new Promise(r => setTimeout(r, 1000));
     }
   }
   if(btn){ btn.disabled=false; btn.textContent=btn._label; }
-  if(netErr || !res) {
+  if(netErr || !j) {
     toast('연결이 잠깐 불안정했어요. 한 번만 다시 눌러 주세요.');
     return;
   }
-  if(res.status === 401) {
-    // 401 = 입장 코드가 틀린 경우(서버가 코드부터 검사). 여기서만 막는다.
-    toast('🔒 입장 코드가 틀렸어요. 코드를 다시 확인해 주세요.');
-    const ci = document.getElementById('code-input'); ci.focus(); ci.select();
-    return;   // 모달 유지 · 입장 안 시킴
-  }
-  if(res.status === 400) {
-    // 입력값 문제(예: 이름 누락) — 서버 메시지 보여주고 막는다.
-    let msg = '입력한 내용을 다시 확인해 주세요.';
-    try { const j = await res.json(); if(j && j.message) msg = j.message; } catch(e) {}
-    toast(msg);
+  if(!j.ok) {
+    // 승인되지 않은 이름 → 입장 불가
+    toast('🔒 ' + (j.message || '승인되지 않은 이름이에요. 관리자에게 문의하세요.'));
+    const ni = document.getElementById('name-input'); ni.focus(); ni.select();
     return;
   }
-  // 401·400이 아니면 코드는 통과된 것(서버가 코드부터 검사하므로).
-  // 기록 저장(DB)이 잠깐 삐끗해 500이 나도, 코드는 맞았으니 입장은 시킨다.
-  me = {name, email, code, avatar};   // 세션 메모리에만 유지 (저장 안 함 → 새로고침하면 다시 로그인)
+  // 승인됨 → 로그인. 캐릭터는 사용자가 바꿨으면 그걸, 아니면 서버에 저장된 걸 사용.
+  const avatar = avatarTouched ? `${pickedEmoji}|${pickedColor}` : (j.avatar || `${pickedEmoji}|${pickedColor}`);
+  me = { name: j.name || name, avatar, admin: !!j.admin, email };
   updateMeBadge();
   document.getElementById('name-modal').classList.remove('show');
-  if(!res.ok) {
-    // 코드는 맞아서 입장은 시키되, 저장이 실패했으면 실제 오류를 짧게 보여줘 진단에 도움.
-    let dbg = '';
-    try { const j = await res.json(); const e = j && (j.error || j.message); if(e) dbg = ' [' + String(e).slice(0,70) + ']'; } catch(e) {}
-    toast('입장했어요. (기록 저장이 잠깐 불안정' + dbg + ')');
+  // 캐릭터/이메일을 바꿨으면 조용히 저장 (실패해도 입장에는 지장 없음)
+  if(avatarTouched || email) {
+    apiFetch('/api/member', {method:'POST', headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({action:'profile', name: me.name, avatar, email})}).catch(()=>{});
   }
   loadDashboard(true);
 }
@@ -901,7 +897,7 @@ function shareKakao() {
 
 /* ── 데이터 로드 ── */
 async function loadDashboard(force) {
-  if(!me || !me.code) return;   // 로그인(입장 코드 입력) 전에는 대시보드를 부르지 않는다 → 첫 화면에서 401 안내가 뜨지 않음
+  if(!me || !me.name) return;   // 로그인 전에는 대시보드를 부르지 않는다 → 첫 화면에서 401 안내가 뜨지 않음
   try {
     const [entRes, memRes, rxRes, shRes, cmRes, anRes] = await Promise.all([
       apiFetch('/api/log?me=' + encodeURIComponent(me && me.name ? me.name : '')), apiFetch('/api/member'), apiFetch('/api/react'),
@@ -1445,6 +1441,34 @@ function renderAdmin() {
   document.getElementById('chalk-manage').innerHTML = announcements.length
     ? announcements.map(a=>`<div class="chalk-manage-row"><b>📌 ${esc(a.title)}</b><button class="chalk-del" onclick="deleteChalk(${a.id})">내리기</button></div>`).join('')
     : '<div style="font-size:12px;color:#b6a88f">아직 걸린 스페셜이 없어요.</div>';
+
+  // 멤버 관리 (승인 목록)
+  const mm = document.getElementById('member-manage');
+  if(mm) {
+    mm.innerHTML = members.length
+      ? members.map(m=>`<div class="chalk-manage-row"><span>${avatarHtml(m.name)} ${esc(m.name)}${isAdmin(m.name)?' 👑':''}</span>${isAdmin(m.name)?'<span style="font-size:11px;color:#b6a88f">관리자</span>':`<button class="chalk-del" onclick="adminRemoveMember('${esc(m.name).replace(/'/g,"\\'")}')">삭제</button>`}</div>`).join('')
+      : '<div style="font-size:12px;color:#b6a88f">아직 등록된 멤버가 없어요. 위에서 추가해 보세요.</div>';
+  }
+}
+async function adminAddMember() {
+  const el = document.getElementById('new-member-name');
+  const name = (el.value || '').trim();
+  if(!name) { toast('추가할 이름을 입력해 주세요.'); el.focus(); return; }
+  const res = await apiFetch('/api/member', {method:'POST', headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({action:'add', name})});
+  const out = await res.json().catch(()=>({}));
+  if(!res.ok) { toast(out.message || '추가하지 못했어요.'); return; }
+  el.value = '';
+  toast(out.already ? `${name}님은 이미 등록돼 있어요.` : `${name}님을 추가했어요! ✅`);
+  await loadDashboard(true);
+}
+async function adminRemoveMember(name) {
+  const res = await apiFetch('/api/member', {method:'POST', headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({action:'remove', name})});
+  const out = await res.json().catch(()=>({}));
+  if(!res.ok) { toast(out.message || '삭제하지 못했어요.'); return; }
+  toast(`${name}님을 목록에서 뺐어요.`);
+  await loadDashboard(true);
 }
 function grantToggle(n){ grantSet.has(n)?grantSet.delete(n):grantSet.add(n); renderAdmin(); }
 function grantSelectAll(){ teamNames().forEach(n=>grantSet.add(n)); renderAdmin(); }

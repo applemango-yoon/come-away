@@ -1,15 +1,26 @@
 import json
 import os
 import urllib.request
+import urllib.parse
 from datetime import datetime, timedelta, timezone
 from http.server import BaseHTTPRequestHandler
 
 KST = timezone(timedelta(hours=9))
 
 
-def code_ok(h):
-    code = os.environ.get('ENTRY_CODE', '').strip().lower()
-    return (not code) or h.headers.get('X-Entry-Code', '').strip().lower() == code
+def member_ok(h):
+    # 승인된 멤버(또는 관리자)만 허용. 입장 코드 없이 이름으로 인증.
+    name = (h.headers.get('X-Member') or '').strip()
+    if not name:
+        return False
+    admins = [a.strip().lower() for a in os.environ.get('ADMIN_NAMES', '').split(',') if a.strip()]
+    if name.lower() in admins:
+        return True
+    try:
+        rows = sb('GET', 'members?name=eq.' + urllib.parse.quote(name, safe='') + '&select=name')
+        return bool(rows)
+    except Exception:
+        return False
 
 
 def sb(path):
@@ -27,8 +38,8 @@ class handler(BaseHTTPRequestHandler):
 
     def do_GET(self):
         # 전체 데이터 백업 (JSON 다운로드) — 입장 코드 필요
-        if not code_ok(self):
-            self._send_json({'error': 'bad_code', 'message': '입장 코드가 올바르지 않아요.'}, 401)
+        if not member_ok(self):
+            self._send_json({'error': 'bad_code', 'message': '승인되지 않은 이름이에요. 관리자에게 문의하세요.'}, 401)
             return
         try:
             dump = {
