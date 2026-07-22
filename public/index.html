@@ -629,7 +629,9 @@ let activeTab = 'study';
 /* ── 공통 헬퍼 ── */
 function apiFetch(url, opts) {
   opts = opts || {};
-  opts.headers = Object.assign({'X-Member': (me && me.name) || ''}, opts.headers || {});
+  // 이름은 한글일 수 있어 헤더에 그대로 담으면 fetch가 타입에러를 낸다(헤더는 ASCII만).
+  // 반드시 인코딩해서 담고 서버에서 디코딩한다.
+  opts.headers = Object.assign({'X-Member': encodeURIComponent((me && me.name) || '')}, opts.headers || {});
   return fetch(url, opts).then(res => {
     if(res.status === 401) {
       // 로그인 안 됨(또는 승인 취소됨) → 로그인 모달 안내 (이미 떠 있으면 중복 안내 안 함)
@@ -844,14 +846,17 @@ function speakTrans(key) {
 }
 function render(data) {
   data = data || {};
-  const trans = data.translations || {};
+  const trans = (data.translations && typeof data.translations === 'object') ? data.translations : {};
+  const wordsArr = Array.isArray(data.words) ? data.words : [];
+  const origArr = Array.isArray(data.originals) ? data.originals : [];
   lastTrans = trans;
   lastAnalysis = data;
   const tbody = document.getElementById('trans-body');
   tbody.innerHTML = ['개역개정','새번역','NKJV','NASB'].map(v =>
     trans[v] ? `<tr><td>${v}${(v==='NKJV'||v==='NASB')?`<button class="tts-btn" title="영어로 듣기" onclick="speakTrans('${v}')">🔊</button>`:''}</td><td>${trans[v]}</td></tr>` : ''
   ).join('');
-  document.getElementById('words-body').innerHTML = (data.words||[]).map((w,i) => {
+  document.getElementById('words-body').innerHTML = wordsArr.map((w,i) => {
+    w = w || {};
     return `<div class="word-card">
       <div class="word-num">${i+1} <span class="pos-badge">${esc(w.pos||'')}</span></div>
       <div class="word-title">${esc(w.english||w.korean||'')}${w.korean?`<span>${esc(w.korean)}</span>`:''}</div>
@@ -859,17 +864,18 @@ function render(data) {
       <div class="word-row"><span class="wk">뉘앙스</span><span class="wv">${esc(w.nuance||'')}</span></div>
     </div>`;
   }).join('');
-  document.getElementById('originals-body').innerHTML = (data.originals||[]).map(o =>
-    `<div class="orig-card">
-      <div class="orig-word">${esc(o.original)}<span>${esc(o.reading||'')}${o.korean?' · '+esc(o.korean):''}</span></div>
+  document.getElementById('originals-body').innerHTML = origArr.map(o => {
+    o = o || {};
+    return `<div class="orig-card">
+      <div class="orig-word">${esc(o.original||'')}<span>${esc(o.reading||'')}${o.korean?' · '+esc(o.korean):''}</span></div>
       <div class="orig-mean">${esc(o.meaning||'')}</div>
       ${strongLinks(o.strong)}
-    </div>`
-  ).join('') || '<div class="empty" style="padding:20px">원어 정보가 없어요.</div>';
+    </div>`;
+  }).join('') || '<div class="empty" style="padding:20px">원어 정보가 없어요.</div>';
   document.getElementById('bg-text').textContent = data.background||'';
   document.getElementById('result-area').style.display = 'block';
   document.getElementById('result-area').scrollIntoView({behavior:'smooth'});
-  words = (data.words||[]).map(w=>w.english).filter(Boolean);
+  words = wordsArr.map(w=>(w&&w.english)||'').filter(Boolean);
   renderChips();
 }
 

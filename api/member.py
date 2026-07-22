@@ -50,7 +50,7 @@ class handler(BaseHTTPRequestHandler):
 
     # ── 인증: 승인된 멤버(또는 관리자)만 ──
     def _member_ok(self):
-        name = (self.headers.get('X-Member') or '').strip()
+        name = urllib.parse.unquote(self.headers.get('X-Member') or '').strip()
         return bool(name) and (is_admin_name(name) or member_row(name) is not None)
 
     def _deny(self):
@@ -96,7 +96,7 @@ class handler(BaseHTTPRequestHandler):
         except Exception:
             body = {}
         action = (body.get('action') or '').strip()
-        caller = (self.headers.get('X-Member') or '').strip()
+        caller = urllib.parse.unquote(self.headers.get('X-Member') or '').strip()
 
         # ── 관리자: 멤버 추가 / 삭제 (승인 관리) ──
         if action in ('add', 'remove'):

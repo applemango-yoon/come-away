@@ -8,7 +8,7 @@ from http.server import BaseHTTPRequestHandler
 
 def member_ok(h):
     # 승인된 멤버(또는 관리자)만 허용. 입장 코드 없이 이름으로 인증.
-    name = (h.headers.get('X-Member') or '').strip()
+    name = urllib.parse.unquote(h.headers.get('X-Member') or '').strip()
     if not name:
         return False
     admins = [a.strip().lower() for a in os.environ.get('ADMIN_NAMES', '').split(',') if a.strip()]

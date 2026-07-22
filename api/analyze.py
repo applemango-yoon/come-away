@@ -9,7 +9,7 @@ from http.server import BaseHTTPRequestHandler
 
 def member_ok(h):
     # 승인된 멤버(또는 관리자)만 허용. 입장 코드 없이 이름으로 인증.
-    name = (h.headers.get('X-Member') or '').strip()
+    name = urllib.parse.unquote(h.headers.get('X-Member') or '').strip()
     if not name:
         return False
     admins = [a.strip().lower() for a in os.environ.get('ADMIN_NAMES', '').split(',') if a.strip()]
@@ -137,7 +137,7 @@ words 규칙 (아주 중요):
 - 번역본마다 서로 "다른 영어 단어"를 쓴 곳은 하나로 묶지 말고 각각 따로 넣어라. 예: "eternal"과 "everlasting"을 각각 한 항목씩, "still"과 "quiet"도 각각. 각 단어의 미묘한 차이를 뉘앙스에서 설명하라.
 - meaning에는 그 영어 단어의 한국어 뜻을 2~3개(중요도 순) 담아라. 뜻을 비우지 마.
 - 원어(헬라어/히브리어)는 words에 절대 넣지 마 (그건 originals에서).
-words는 5~7개 (단어 위주 + 중요한 동사구 몇 개 포함).
+words는 정확히 5개만. 이 본문에서 가장 중요하고 어려운(뜻·뉘앙스가 깊은) 영어 단어/동사구 5개만 골라라. 쉬운 단어는 빼라.
 originals는 이 본문에서 가장 중요한 원어 딱 3개만.
 Strong's 번호는 반드시 정확해야 한다 (블루레터바이블·바이블허브에서 검증 가능해야 하므로).
 추측하지 말고 확실한 것만. JSON만 출력.'''
