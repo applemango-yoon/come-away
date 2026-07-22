@@ -31,15 +31,18 @@ def is_admin_name(name):
 
 
 def member_row(name):
-    """이름으로 멤버 1건 조회. 없으면 None."""
+    """이름으로 멤버 1건 조회. 없으면 None. email 컬럼이 없어도 깨지지 않도록 폴백."""
     name = (name or '').strip()
     if not name:
         return None
-    try:
-        rows = sb('GET', 'members?name=eq.' + urllib.parse.quote(name, safe='') + '&select=name,avatar')
-        return rows[0] if rows else None
-    except Exception:
-        return None
+    q = 'members?name=eq.' + urllib.parse.quote(name, safe='')
+    for sel in ('&select=name,avatar,email', '&select=name,avatar'):
+        try:
+            rows = sb('GET', q + sel)
+            return rows[0] if rows else None
+        except Exception:
+            continue
+    return None
 
 
 class handler(BaseHTTPRequestHandler):
@@ -70,7 +73,8 @@ class handler(BaseHTTPRequestHandler):
                     pass
             if row or admin:
                 avatar = (row.get('avatar') if row else None) or '🐑|#c9d6bd'
-                self._send_json({'ok': True, 'name': login, 'avatar': avatar, 'admin': admin})
+                email = (row.get('email') if row else None) or ''
+                self._send_json({'ok': True, 'name': login, 'avatar': avatar, 'email': email, 'admin': admin})
             else:
                 self._send_json({'ok': False, 'message': '승인되지 않은 이름이에요. 관리자에게 문의하세요.'})
             return

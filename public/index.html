@@ -304,36 +304,50 @@ textarea:focus{border-color:var(--green)}
   <div class="tab" id="admin-tab" style="display:none;flex:0 0 auto;padding-left:14px;padding-right:14px" onclick="showTab('admin')">🧑‍🍳 제빵실</div>
 </div>
 
-<!-- 닉네임 모달 -->
-<div class="modal-backdrop" id="name-modal">
+<!-- 로그인 / 내 소개실 모달 -->
+<div class="modal-backdrop" id="name-modal" onclick="if(event.target===this && me && me.name) this.classList.remove('show')">
   <div class="modal">
-    <div class="modal-title">🚪 &nbsp;들어가기</div>
-    <p style="font-size:12px;color:var(--ink2);line-height:1.7;margin:-4px 0 12px">관리자가 등록한 이름으로 들어와요. 이미 등록된 분은 <b>이름만</b> 입력하면 돼요.</p>
-    <div class="modal-field">
-      <label class="modal-label">이름 / 닉네임</label>
-      <input type="text" id="name-input" maxlength="30" placeholder="예: 망고" onkeydown="if(event.key==='Enter')saveName()">
-    </div>
-    <div class="modal-field">
-      <label class="modal-label">나의 캐릭터</label>
-      <div class="ava-preview">
-        <span class="ava big" id="ava-preview">🐑</span>
-        <span class="name" id="ava-name">초록 양</span>
+
+    <!-- ① 로그인: 이름만 -->
+    <div id="login-section">
+      <div class="modal-title">🚪 &nbsp;들어가기</div>
+      <p style="font-size:12px;color:var(--ink2);line-height:1.7;margin:-4px 0 12px">관리자가 등록한 이름으로 들어와요. 이미 등록된 분은 <b>이름만</b> 입력하면 돼요.</p>
+      <div class="modal-field">
+        <label class="modal-label">이름 / 닉네임</label>
+        <input type="text" id="name-input" maxlength="30" placeholder="예: 망고" onkeydown="if(event.key==='Enter')saveName()">
       </div>
-      <label class="modal-label">색깔</label>
-      <div class="color-row" id="color-pick"></div>
-      <div class="motif-label">🐾 성경 속 동물</div>
-      <div class="motif-row" id="animal-pick"></div>
-      <div class="motif-label">🌿 성경 속 열매</div>
-      <div class="motif-row" id="fruit-pick"></div>
+      <div class="modal-actions">
+        <button class="modal-save" id="save-name-btn" onclick="saveName()">들어가기 🚪</button>
+      </div>
     </div>
-    <div class="modal-field">
-      <label class="modal-label">이메일 <span style="font-size:10px;opacity:.6">(선택 — 아침 묵상 리마인더를 받으려면 입력)</span></label>
-      <input type="text" id="email-input" maxlength="100" placeholder="you@example.com" onkeydown="if(event.key==='Enter')saveName()">
+
+    <!-- ② 내 소개실: 캐릭터 · 메일 · 로그아웃 (로그인 후) -->
+    <div id="profile-section" style="display:none">
+      <div class="modal-title">🌱 &nbsp;내 소개실</div>
+      <p style="font-size:12px;color:var(--ink2);line-height:1.7;margin:-4px 0 12px"><b id="profile-name"></b> 님의 캐릭터와 주간 소식 메일을 여기서 설정해요.</p>
+      <div class="modal-field">
+        <label class="modal-label">나의 캐릭터</label>
+        <div class="ava-preview">
+          <span class="ava big" id="ava-preview">🐑</span>
+          <span class="name" id="ava-name">초록 양</span>
+        </div>
+        <label class="modal-label">색깔</label>
+        <div class="color-row" id="color-pick"></div>
+        <div class="motif-label">🐾 성경 속 동물</div>
+        <div class="motif-row" id="animal-pick"></div>
+        <div class="motif-label">🌿 성경 속 열매</div>
+        <div class="motif-row" id="fruit-pick"></div>
+      </div>
+      <div class="modal-field">
+        <label class="modal-label">주간 소식 메일 <span style="font-size:10px;opacity:.6">(선택 — 아침 묵상 리마인더를 받으려면 입력)</span></label>
+        <input type="text" id="email-input" maxlength="100" placeholder="you@example.com" onkeydown="if(event.key==='Enter')saveProfile()">
+      </div>
+      <div class="modal-actions" style="justify-content:space-between">
+        <button class="modal-cancel" onclick="logout()">🚪 로그아웃</button>
+        <button class="modal-save" onclick="saveProfile()">저장 💾</button>
+      </div>
     </div>
-    <p style="font-size:12px;color:var(--ink2);line-height:1.7;margin-bottom:4px">기록에 이름이 함께 표시되고, 멤버들이 서로의 묵상과 나눔을 볼 수 있어요.</p>
-    <div class="modal-actions">
-      <button class="modal-save" id="save-name-btn" onclick="saveName()">가게 들어가기 🚪</button>
-    </div>
+
   </div>
 </div>
 
@@ -666,10 +680,11 @@ let pickedEmoji = '🐑', pickedColor = '#c9d6bd';
 let avatarTouched = false;   // 로그인 모달에서 사용자가 캐릭터를 실제로 바꿨는지
 
 function loadMe() {
-  // 로그인 전 상태로 시작. 메인 페이지는 그대로 보이고, 로그인은 오른쪽 위 캐릭터 버튼으로.
+  // 첫 화면에서 로그인 팝업(이름만) 표시. 승인된 이름만 입장.
   me = null;
   try { localStorage.removeItem('ca_me'); } catch(e) {}
   updateMeBadge();
+  openNameModal();
 }
 function avatarRaw(name) {
   if(me && me.name === name && me.avatar) return me.avatar;
@@ -705,23 +720,30 @@ function renderAvatarPick() {
 function pickColor(bg) { pickedColor = bg; avatarTouched = true; renderAvatarPick(); }
 function pickMotif(e) { pickedEmoji = e; avatarTouched = true; renderAvatarPick(); }
 function openNameModal() {
-  document.getElementById('name-input').value = me && me.name ? me.name : '';
-  document.getElementById('email-input').value = me && me.email ? me.email : '';
-  const parsed = avatarParse((me && me.avatar) || DEFAULT_AVA);
-  pickedEmoji = parsed.emoji; pickedColor = parsed.bg;
-  if(!COLORS.some(c=>c.bg===pickedColor)) pickedColor = '#c9d6bd';
+  const loggedIn = !!(me && me.name);
+  document.getElementById('login-section').style.display = loggedIn ? 'none' : '';
+  document.getElementById('profile-section').style.display = loggedIn ? '' : 'none';
   avatarTouched = false;
-  renderAvatarPick();
+  if(loggedIn) {
+    // 내 소개실: 캐릭터·메일 세팅
+    document.getElementById('profile-name').textContent = me.name;
+    document.getElementById('email-input').value = me.email || '';
+    const parsed = avatarParse(me.avatar || DEFAULT_AVA);
+    pickedEmoji = parsed.emoji; pickedColor = parsed.bg;
+    if(!COLORS.some(c=>c.bg===pickedColor)) pickedColor = '#c9d6bd';
+    renderAvatarPick();
+  } else {
+    document.getElementById('name-input').value = '';
+  }
   document.getElementById('name-modal').classList.add('show');
-  setTimeout(()=>document.getElementById('name-input').focus(), 100);
+  setTimeout(()=>{ if(!loggedIn){ const el=document.getElementById('name-input'); if(el) el.focus(); } }, 100);
 }
 async function saveName() {
+  // ① 로그인 — 이름만. 승인된 멤버인지 확인하고 입장.
   const name = document.getElementById('name-input').value.trim();
-  const email = document.getElementById('email-input').value.trim();
   if(!name) { toast('이름을 입력해 주세요.'); document.getElementById('name-input').focus(); return; }
   const btn = document.getElementById('save-name-btn');
   if(btn){ btn._label = btn.textContent; btn.disabled = true; btn.textContent = '확인 중...'; }
-  // 관리자가 승인한 이름인지 확인 (인증 불필요한 로그인 조회). 콜드스타트 대비 최대 3회 재시도.
   let j = null, netErr = false;
   for(let attempt = 0; attempt < 3; attempt++) {
     try {
@@ -736,27 +758,41 @@ async function saveName() {
     }
   }
   if(btn){ btn.disabled=false; btn.textContent=btn._label; }
-  if(netErr || !j) {
-    toast('연결이 잠깐 불안정했어요. 한 번만 다시 눌러 주세요.');
-    return;
-  }
+  if(netErr || !j) { toast('연결이 잠깐 불안정했어요. 한 번만 다시 눌러 주세요.'); return; }
   if(!j.ok) {
-    // 승인되지 않은 이름 → 입장 불가
     toast('🔒 ' + (j.message || '승인되지 않은 이름이에요. 관리자에게 문의하세요.'));
     const ni = document.getElementById('name-input'); ni.focus(); ni.select();
     return;
   }
-  // 승인됨 → 로그인. 캐릭터는 사용자가 바꿨으면 그걸, 아니면 서버에 저장된 걸 사용.
-  const avatar = avatarTouched ? `${pickedEmoji}|${pickedColor}` : (j.avatar || `${pickedEmoji}|${pickedColor}`);
-  me = { name: j.name || name, avatar, admin: !!j.admin, email };
+  // 승인됨 → 입장. 캐릭터·메일은 로그인 후 '내 소개실'에서 설정.
+  me = { name: j.name || name, avatar: j.avatar || DEFAULT_AVA, admin: !!j.admin, email: j.email || '' };
   updateMeBadge();
   document.getElementById('name-modal').classList.remove('show');
-  // 캐릭터/이메일을 바꿨으면 조용히 저장 (실패해도 입장에는 지장 없음)
-  if(avatarTouched || email) {
-    apiFetch('/api/member', {method:'POST', headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({action:'profile', name: me.name, avatar, email})}).catch(()=>{});
-  }
   loadDashboard(true);
+}
+async function saveProfile() {
+  // ② 내 소개실 — 캐릭터·메일 저장
+  if(!me || !me.name) return;
+  const email = document.getElementById('email-input').value.trim();
+  const avatar = `${pickedEmoji}|${pickedColor}`;
+  me.avatar = avatar; me.email = email;
+  updateMeBadge();
+  document.getElementById('name-modal').classList.remove('show');
+  toast('저장했어요 💾');
+  try {
+    await apiFetch('/api/member', {method:'POST', headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({action:'profile', name: me.name, avatar, email})});
+  } catch(e) {}
+  loadDashboard(true);
+}
+function logout() {
+  me = null;
+  updateMeBadge();
+  const at = document.getElementById('admin-tab'); if(at) at.style.display = 'none';
+  document.getElementById('name-modal').classList.remove('show');
+  showTab('study');
+  toast('로그아웃했어요 👋');
+  openNameModal();   // 다시 로그인 팝업
 }
 
 /* ── 탭 ── */
@@ -915,7 +951,7 @@ async function loadDashboard(force) {
     if(Array.isArray(rx)) reactions = rx;
     if(sh && sh.balances) shellData = sh;
   } catch(e) { if(force) toast('데이터를 불러오지 못했어요.'); return; }
-  document.getElementById('admin-tab').style.display = (me && isAdmin(me.name)) ? '' : 'none';
+  document.getElementById('admin-tab').style.display = (me && me.admin) ? '' : 'none';
   renderChalkboard();
   renderTeam();
   renderAuthorFilter();
@@ -1247,7 +1283,7 @@ function renderMy() {
   // 단어장
   renderVocab();
   // 전체 백업 버튼은 관리자에게만
-  document.getElementById('full-backup-btn').style.display = (me && isAdmin(me.name)) ? '' : 'none';
+  document.getElementById('full-backup-btn').style.display = (me && me.admin) ? '' : 'none';
   refreshPushBtn();
   // 달력 + 내 목록
   renderCal();
@@ -1398,7 +1434,7 @@ async function togglePush() {
 
 /* ── 🔑 관리실 ── */
 function renderAdmin() {
-  if(!me || !isAdmin(me.name)) return;
+  if(!me || !me.admin) return;
   const names = teamNames().sort((a,b)=>a.localeCompare(b,'ko'));
   const today = todayStr();
   const doneToday = new Set(allEntries.filter(e=>e.date===today).map(e=>e.author||'익명'));
