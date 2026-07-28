@@ -183,10 +183,12 @@ class handler(BaseHTTPRequestHandler):
                     'name': name,
                     'contact': contact,
                     'email': f('email', 80),
-                    'slot': f('slot', 40),
-                    'mode': f('mode', 30),
-                    'level': f('level', 30),
-                    'plan': f('plan', 40),
+                    'slot': f('slot', 200),      # 참여 가능 시간대(복수 선택, 쉼표로 이어붙임)
+                    'mode': f('mode', 40),       # 오프라인 참석 가능 여부
+                    'level': f('level', 30),     # (구버전 호환용, 지금은 안 씀)
+                    'exp': f('exp', 600),        # 영어·성경 경험
+                    'source': f('source', 40),   # 알게 된 경로
+                    'plan': f('plan', 60),       # 기수 정보 (예: 1기 로마서 · 4주 · 72,000원)
                     'payer': f('payer', 40),
                     'motive': f('motive', 800),
                     'at': (datetime.datetime.utcnow() + datetime.timedelta(hours=9)).strftime('%Y-%m-%d %H:%M'),

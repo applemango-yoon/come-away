@@ -3,16 +3,16 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Come Away 영어 묵상 모임 — 신청하기</title>
-<meta name="description" content="6~7명 소그룹으로 매주 한 번, 영어 성경으로 말씀을 묵상합니다. 번역본 비교 · 영어 단어 · 나눔까지. 온라인/오프라인 모두 참여 가능.">
-<meta name="theme-color" content="#8aa07a">
+<title>허니 베이커리 — 영어로 읽는 말씀 모임 신청</title>
+<meta name="description" content="주 1회 60분, 6~7명이 한 팀이 되어 영어 성경으로 말씀을 묵상합니다. 1기는 로마서 16장 · 4주 과정. 목/화/토 세 개 반.">
+<meta name="theme-color" content="#cd8a62">
 <link rel="canonical" href="https://come-away-xi.vercel.app/join">
 <meta property="og:type" content="website">
-<meta property="og:title" content="Come Away 영어 묵상 모임 — 함께 읽는 영어 성경">
-<meta property="og:description" content="6~7명 소그룹 · 주 1회 70분 · 온·오프라인 병행. 번역본을 나란히 비교하며 영어로 말씀을 묵상해요 🐟🍞">
+<meta property="og:title" content="허니 베이커리 — 영어로 읽는 말씀 모임">
+<meta property="og:description" content="주의 말씀의 맛이 내게 어찌 그리 단지요 (시 119:103) · 1기 로마서 4주 과정 신청받아요 🍯">
 <meta property="og:url" content="https://come-away-xi.vercel.app/join">
 <meta property="og:locale" content="ko_KR">
-<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' rx='22' fill='%23f6f1e7'/%3E%3Ctext x='50' y='66' font-size='44' text-anchor='middle'%3E%F0%9F%90%9F%3C/text%3E%3C/svg%3E">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' rx='22' fill='%23f6f1e7'/%3E%3Ctext x='50' y='68' font-size='46' text-anchor='middle'%3E%F0%9F%8D%AF%3C/text%3E%3C/svg%3E">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Jua&family=Gowun+Dodum&display=swap" rel="stylesheet">
 <style>
@@ -22,18 +22,19 @@
   --parch:#f6f1e7;--cream:#fffdf6;
   --ink:#4c4237;--ink2:#75675a;
   --line:#ddd0ba;--line-l:#ece3d2;
-  --soft-yellow:#f5e9c9;
+  --honey:#e8b04b;--honey-l:#f9ecc9;--honey-d:#b07c1e;
 }
 *{box-sizing:border-box;margin:0;padding:0}
 body{font-family:'Gowun Dodum',sans-serif;color:var(--ink);min-height:100vh;line-height:1.75;
   background-color:var(--parch);background-image:radial-gradient(rgba(140,120,90,.06) 1.2px,transparent 1.2px);background-size:22px 22px}
 
-.awning{text-align:center;padding:30px 20px 26px;background:repeating-linear-gradient(90deg,var(--terra-l) 0 26px,var(--cream) 26px 52px);border-bottom:3px solid var(--terra)}
-.awning .sub{font-family:'Jua',sans-serif;font-size:13px;color:var(--terra-d);letter-spacing:2px}
-.awning h1{font-family:'Jua',sans-serif;font-size:30px;color:var(--ink);margin:8px 0 10px;letter-spacing:.5px;line-height:1.35}
-.awning p{font-size:15px;color:var(--ink2)}
-.badges{display:flex;flex-wrap:wrap;gap:7px;justify-content:center;margin-top:16px}
-.badge{background:var(--cream);border:2px solid var(--terra-l);color:var(--terra-d);font-family:'Jua',sans-serif;font-size:12.5px;padding:6px 13px;border-radius:999px}
+.awning{text-align:center;padding:32px 20px 28px;background:repeating-linear-gradient(90deg,var(--honey-l) 0 26px,var(--cream) 26px 52px);border-bottom:3px solid var(--honey)}
+.awning .sub{font-family:'Jua',sans-serif;font-size:13px;color:var(--honey-d);letter-spacing:2.5px}
+.awning h1{font-family:'Jua',sans-serif;font-size:30px;color:var(--ink);margin:10px 0 12px;letter-spacing:.5px;line-height:1.35}
+.awning .verse{font-size:14px;color:var(--ink2);max-width:520px;margin:0 auto}
+.awning .verse b{color:var(--honey-d)}
+.badges{display:flex;flex-wrap:wrap;gap:7px;justify-content:center;margin-top:18px}
+.badge{background:var(--cream);border:2px solid var(--honey-l);color:var(--honey-d);font-family:'Jua',sans-serif;font-size:12.5px;padding:6px 13px;border-radius:999px}
 
 .wrap{max-width:900px;margin:0 auto;padding:26px 18px 60px}
 @media(min-width:900px){.wrap{padding:34px 28px 70px}}
@@ -43,37 +44,60 @@ body{font-family:'Gowun Dodum',sans-serif;color:var(--ink);min-height:100vh;line
 .sec-lead{font-size:14px;color:var(--ink2);margin-bottom:16px;padding-bottom:14px;border-bottom:2px dashed var(--line-l)}
 p+p{margin-top:12px}
 
-.grid2{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:12px}
+.grid2{display:grid;grid-template-columns:repeat(auto-fit,minmax(250px,1fr));gap:12px}
 .tile{border:2px solid var(--line-l);border-radius:14px;padding:16px 18px;background:white;border-left:5px solid var(--green)}
 .tile h4{font-family:'Jua',sans-serif;font-size:15.5px;margin-bottom:6px;color:var(--ink)}
 .tile p{font-size:14px;color:var(--ink2);line-height:1.75}
+.tile .v{display:block;margin-top:8px;font-size:12.5px;color:var(--green-d)}
 
-.flow{border-left:3px dashed var(--terra-l);margin-left:8px;padding-left:20px}
+/* 오늘의 특선 — 이번 기수 안내 */
+.special{background:var(--honey-l);border:2px solid var(--honey);border-radius:18px;padding:0;overflow:hidden;margin-bottom:18px;box-shadow:0 3px 0 rgba(176,124,30,.15)}
+.special .cap{background:var(--honey);color:#fff;font-family:'Jua',sans-serif;font-size:13px;letter-spacing:1.5px;text-align:center;padding:8px}
+.special .body{padding:22px 24px 24px}
+.special h2{font-family:'Jua',sans-serif;font-size:25px;color:var(--ink);text-align:center;line-height:1.4}
+.special .sub2{text-align:center;font-size:14px;color:var(--honey-d);margin-top:6px}
+.menu{list-style:none;margin:20px 0 0;border-top:2px dashed rgba(176,124,30,.35)}
+.menu li{display:flex;align-items:baseline;gap:10px;padding:11px 2px;border-bottom:1px dashed rgba(176,124,30,.35);font-size:14.5px}
+.menu li .k{font-family:'Jua',sans-serif;color:var(--honey-d);flex-shrink:0;width:92px}
+.menu li .d{flex:1;border-bottom:1px dotted rgba(176,124,30,.45);transform:translateY(-4px)}
+.menu li .v{text-align:right;color:var(--ink)}
+.special .total{margin-top:18px;text-align:center;background:var(--cream);border:2px solid var(--honey);border-radius:14px;padding:16px}
+.special .total .amt{font-family:'Jua',sans-serif;font-size:34px;color:var(--ink);line-height:1.2}
+.special .total .amt small{font-size:15px;color:var(--ink2)}
+.special .total .per{font-size:13px;color:var(--ink2);margin-top:4px}
+
+.slots{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:12px}
+.slot{background:white;border:2px solid var(--line-l);border-left:5px solid var(--terra);border-radius:14px;padding:16px 18px;text-align:center}
+.slot .day{font-family:'Jua',sans-serif;font-size:17px;color:var(--ink)}
+.slot .time{font-family:'Jua',sans-serif;font-size:22px;color:var(--terra-d);margin:4px 0 6px}
+.slot .who{font-size:13px;color:var(--ink2)}
+
+.flow{border-left:3px dashed var(--honey-l);margin-left:8px;padding-left:20px}
 .step{position:relative;padding-bottom:18px}
 .step:last-child{padding-bottom:0}
-.step::before{content:'';position:absolute;left:-27px;top:6px;width:12px;height:12px;border-radius:50%;background:var(--terra);border:3px solid var(--cream)}
-.step .t{font-family:'Jua',sans-serif;font-size:11.5px;color:var(--terra-d);background:var(--terra-l);border-radius:999px;padding:2px 9px;display:inline-block;margin-bottom:5px}
+.step::before{content:'';position:absolute;left:-27px;top:6px;width:12px;height:12px;border-radius:50%;background:var(--honey);border:3px solid var(--cream)}
+.step .t{font-family:'Jua',sans-serif;font-size:11.5px;color:var(--honey-d);background:var(--honey-l);border-radius:999px;padding:2px 9px;display:inline-block;margin-bottom:5px}
 .step h4{font-family:'Jua',sans-serif;font-size:16px;margin-bottom:4px}
 .step p{font-size:14px;color:var(--ink2)}
 
-.price-box{background:var(--soft-yellow);border:2px solid var(--terra);border-radius:16px;padding:20px;text-align:center}
-.price-box .tag{font-family:'Jua',sans-serif;font-size:13px;color:var(--terra-d)}
-.price-box .amt{font-family:'Jua',sans-serif;font-size:34px;color:var(--ink);margin:6px 0 2px}
-.price-box .amt small{font-size:15px;color:var(--ink2)}
-.price-box .per{font-size:13px;color:var(--ink2)}
-.price-note{font-size:13.5px;color:var(--ink2);margin-top:14px;line-height:1.85}
+.price-note{font-size:13.5px;color:var(--ink2);margin-top:14px;line-height:1.95}
 .pill{display:inline-block;background:var(--green-l);color:var(--green-d);font-family:'Jua',sans-serif;font-size:12px;padding:3px 10px;border-radius:999px;margin-right:5px}
 
-label{display:block;font-family:'Jua',sans-serif;font-size:13px;color:var(--green-d);margin:16px 0 7px}
+label{display:block;font-family:'Jua',sans-serif;font-size:13px;color:var(--green-d);margin:18px 0 7px}
 label .req{color:var(--terra-d)}
 input[type=text],input[type=email],select,textarea{width:100%;padding:12px 14px;border:2px solid var(--line);border-radius:10px;font-size:15px;
   font-family:'Gowun Dodum',sans-serif;background:white;outline:none;color:var(--ink)}
 textarea{min-height:96px;resize:vertical;line-height:1.75;font-size:14.5px}
 input:focus,select:focus,textarea:focus{border-color:var(--green)}
 .hint{font-size:12.5px;color:#a2937f;margin-top:6px}
-.chk{display:flex;align-items:flex-start;gap:9px;margin-top:18px;font-size:13.5px;color:var(--ink2)}
+.opts{display:grid;gap:9px}
+.opt{display:flex;align-items:flex-start;gap:10px;background:white;border:2px solid var(--line-l);border-radius:12px;padding:12px 14px;cursor:pointer;font-size:14.5px;color:var(--ink)}
+.opt input{width:19px;height:19px;margin-top:2px;flex-shrink:0;accent-color:var(--green);cursor:pointer}
+.opt:hover{border-color:var(--green)}
+.opt span small{display:block;font-size:12.5px;color:#a2937f;margin-top:2px}
+.chk{display:flex;align-items:flex-start;gap:9px;margin-top:20px;font-size:13.5px;color:var(--ink2)}
 .chk input{width:18px;height:18px;margin-top:3px;flex-shrink:0;accent-color:var(--green)}
-.btn{width:100%;padding:15px;border:none;border-radius:12px;font-size:16px;cursor:pointer;margin-top:20px;
+.btn{width:100%;padding:15px;border:none;border-radius:12px;font-size:16px;cursor:pointer;margin-top:22px;
   font-family:'Jua',sans-serif;letter-spacing:.5px;background:var(--terra);color:white;box-shadow:0 3px 0 var(--terra-d)}
 .btn:hover{background:var(--terra-d)}
 .btn:disabled{background:#c9bda9;box-shadow:none;cursor:default}
@@ -82,7 +106,7 @@ input:focus,select:focus,textarea:focus{border-color:var(--green)}
 .done .em{font-size:44px}
 .done h3{font-family:'Jua',sans-serif;font-size:21px;margin:12px 0 10px;color:var(--green-d)}
 .done p{font-size:14.5px;color:var(--ink2)}
-.done .card{background:var(--soft-yellow);border:2px dashed var(--terra);border-radius:14px;padding:16px;margin-top:18px;text-align:left;font-size:14px;line-height:1.9}
+.done .card{background:var(--honey-l);border:2px dashed var(--honey);border-radius:14px;padding:16px;margin-top:18px;text-align:left;font-size:14px;line-height:1.95}
 
 .faq{border-bottom:1px dashed var(--line-l);padding:14px 0}
 .faq:last-child{border-bottom:none;padding-bottom:0}
@@ -96,92 +120,121 @@ input:focus,select:focus,textarea:focus{border-color:var(--green)}
 <body>
 
 <div class="awning">
-  <div class="sub">🐟 COME AWAY 🍞</div>
-  <h1>영어로 읽는 말씀,<br>혼자 말고 같이 해요</h1>
-  <p>6~7명이 한 팀이 되어 매주 한 번, 영어 성경으로 말씀을 묵상하는 모임입니다.</p>
+  <div class="sub">🍯 HONEY BAKERY 🍯</div>
+  <h1>말씀을 영어로,<br>매주 한 조각씩</h1>
+  <p class="verse">“주의 말씀의 맛이 내게 어찌 그리 단지요<br>내 입에 <b>꿀보다 더 다니이다</b>” <b>— 시편 119:103</b></p>
   <div class="badges">
+    <span class="badge">주 1회 · 60분</span>
     <span class="badge">한 팀 6~7명</span>
-    <span class="badge">주 1회 · 70분</span>
-    <span class="badge">온라인 + 오프라인</span>
-    <span class="badge">영어 초급도 환영</span>
+    <span class="badge">온라인 (가끔 오프라인)</span>
+    <span class="badge">영어 수준 안 나눠요</span>
   </div>
 </div>
 
 <div class="wrap">
 
+  <!-- ── 오늘의 특선(Daily Special) : 1기 안내 ── -->
+  <div class="special">
+    <div class="cap">DAILY SPECIAL</div>
+    <div class="body">
+      <h2>1기 · 로마서</h2>
+      <div class="sub2">4주 동안 16장을 함께 통과합니다</div>
+      <ul class="menu">
+        <li><span class="k">본문</span><span class="d"></span><span class="v">로마서 1~16장</span></li>
+        <li><span class="k">기간</span><span class="d"></span><span class="v">4주 · 한 주에 4장씩</span></li>
+        <li><span class="k">모임</span><span class="d"></span><span class="v">주 1회 60분 · 온라인</span></li>
+        <li><span class="k">정원</span><span class="d"></span><span class="v">한 반 6~7명</span></li>
+        <li><span class="k">참가비</span><span class="d"></span><span class="v">1주 18,000원</span></li>
+      </ul>
+      <div class="total">
+        <div class="amt">72,000<small>원</small></div>
+        <div class="per">4주 전체 · 계좌는 신청 후 개별로 안내드려요</div>
+      </div>
+    </div>
+  </div>
+
   <div class="sec">
-    <div class="sec-title">🌿 이런 마음이라면 딱이에요</div>
+    <div class="sec-title">🍯 이 모임이 지키려는 네 가지</div>
     <div class="sec-lead">영어를 잘해야 오는 곳이 아니라, 말씀 앞에 더 오래 머물고 싶은 사람이 오는 곳이에요.</div>
     <div class="grid2">
-      <div class="tile"><h4>영어 성경을 읽고 싶은데 혼자서는 자꾸 미뤄져요</h4>
-        <p>매주 같은 시간, 같은 얼굴들이 기다리고 있으면 신기하게도 계속하게 돼요. 6~7명이라 빠지면 티가 나거든요.</p></div>
-      <div class="tile"><h4>같은 구절인데 번역본마다 왜 다를까 궁금했어요</h4>
-        <p>개역개정 · 새번역 · NKJV · NASB를 나란히 놓고 봅니다. 다르게 옮겨진 자리마다 배울 것이 숨어 있어요.</p></div>
-      <div class="tile"><h4>영어 단어를 문맥 속에서 제대로 익히고 싶어요</h4>
-        <p>단어장 암기가 아니라, 말씀 안에서 만난 단어를 뜻과 뉘앙스까지 함께 봅니다. 오래 남아요.</p></div>
-      <div class="tile"><h4>깊이 나눌 수 있는 작은 공동체가 필요했어요</h4>
-        <p>인원을 6~7명으로 고정하는 이유예요. 모두가 한 번씩 말할 수 있는 크기를 지킵니다.</p></div>
+      <div class="tile"><h4>말씀에 깊이 머무는 것</h4>
+        <p>진도를 빼는 모임이 아니에요. 한 구절 앞에서 오래 서 있는 걸 아까워하지 않습니다.
+        <span class="v">“주야로 그것을 묵상하여” — 수 1:8</span></p></div>
+      <div class="tile"><h4>영어 실력이 실제로 느는 것</h4>
+        <p>분위기만 좋고 남는 게 없으면 안 되잖아요. 두 번역본을 직접 대조하고, 한 달에 한 번은 입으로 말해봅니다.</p></div>
+      <div class="tile"><h4>끊기지 않는 루틴</h4>
+        <p>혼자서는 늘 3일이면 멈춰요. 매주 같은 시간에 같은 얼굴들이 기다리면 신기하게 계속하게 됩니다.</p></div>
+      <div class="tile"><h4>작고 안전한 공동체</h4>
+        <p>한 반을 6~7명으로 묶는 이유예요. 모두가 한 번씩은 말할 수 있는 크기, 그리고 못 나온 걸 알아채는 크기.</p></div>
     </div>
   </div>
 
   <div class="sec">
-    <div class="sec-title">⏰ 모임 한 번은 이렇게 흘러가요</div>
-    <div class="sec-lead">온라인 70분. 준비물은 성경과 따뜻한 음료 한 잔이면 충분해요.</div>
-    <div class="flow">
-      <div class="step"><span class="t">0~10분</span><h4>한 주 안부와 묵상 나눔</h4>
-        <p>지난 한 주 어떻게 지냈는지, 마음에 남은 구절이 있었는지 짧게 나눕니다.</p></div>
-      <div class="step"><span class="t">10~20분</span><h4>본문 소리 내어 읽기</h4>
-        <p>한국어 한 번, 영어 한 번. 돌아가며 한 절씩 읽어요. 발음을 지적하지 않는 것이 규칙입니다.</p></div>
-      <div class="step"><span class="t">20~40분</span><h4>번역본 비교 — 왜 다르게 옮겼을까</h4>
-        <p>네 개의 번역본에서 다르게 표현된 자리를 함께 짚습니다. 원어의 뜻이 어디로 흘러갔는지 따라가 봐요.</p></div>
-      <div class="step"><span class="t">40~55분</span><h4>오늘의 영어 단어 5~8개</h4>
-        <p>사전적 뜻과 실제 쓰임의 뉘앙스를 보고, 각자 그 단어로 짧은 문장을 하나씩 만들어 봅니다.</p></div>
-      <div class="step"><span class="t">55~70분</span><h4>적용 나눔과 기도</h4>
-        <p>이 말씀이 이번 주 내 하루 어디에 닿는지 한 문장으로 정리하고, 서로의 제목을 위해 기도합니다.</p></div>
-    </div>
-  </div>
-
-  <div class="sec">
-    <div class="sec-title">🗓 한 달은 이렇게 채워져요</div>
-    <div class="sec-lead">온라인 4회가 기본이고, 오프라인은 원하는 분만 오시면 돼요.</div>
-    <div class="grid2">
-      <div class="tile"><h4>온라인 정기모임 · 월 4회</h4>
-        <p>매주 같은 요일, 같은 시간에 70분간 화상으로 만납니다. 신청할 때 원하는 시간대를 고르면 비슷한 분들끼리 한 팀이 돼요.</p></div>
-      <div class="tile"><h4>오프라인 모임 · 월 1회 (선택)</h4>
-        <p>한 달에 한 번 직접 만나요. 함께 필사하고, 걸으며 묵상하고, 밥을 먹습니다. 지방이나 해외에 계시면 온라인만 참여하셔도 괜찮아요.</p></div>
-      <div class="tile"><h4>주중 개인 묵상 (자율)</h4>
-        <p>Come Away 홈페이지에 그날의 묵상을 기록해요. 서로의 기록에 물고기🐟와 병🍞을 보내며 응원합니다.</p></div>
-      <div class="tile"><h4>단어 복습 플래시카드</h4>
-        <p>모임에서 만난 영어 단어가 내 단어장에 쌓입니다. 뜻과 뉘앙스, 어느 본문에서 나왔는지까지 함께 복습할 수 있어요.</p></div>
-    </div>
-  </div>
-
-  <div class="sec">
-    <div class="sec-title">🍞 참가비</div>
-    <div class="sec-lead">계좌 이체로 납부해요. 신청서를 보내주시면 계좌와 배정된 팀을 안내해 드립니다.</div>
-    <div class="grid2">
-      <div class="price-box">
-        <div class="tag">한 달 참가비</div>
-        <div class="amt">45,000<small>원</small></div>
-        <div class="per">온라인 4회 + 오프라인 1회 · 회당 약 9,000원</div>
-      </div>
-      <div class="price-box" style="background:var(--green-l);border-color:var(--green)">
-        <div class="tag" style="color:var(--green-d)">3개월 함께하기</div>
-        <div class="amt">126,000<small>원</small></div>
-        <div class="per">한 달에 42,000원 · 12,000원 아껴요</div>
-      </div>
+    <div class="sec-title">🕘 세 개의 반 — 편한 시간을 고르세요</div>
+    <div class="sec-lead">같은 본문, 같은 진행이에요. 시간만 다릅니다. 여러 개 골라주시면 배정할 때 훨씬 수월해요.</div>
+    <div class="slots">
+      <div class="slot"><div class="day">목요일</div><div class="time">오전 10:00</div><div class="who">아이 보내고 난 오전 시간</div></div>
+      <div class="slot"><div class="day">화요일</div><div class="time">밤 9:00</div><div class="who">퇴근 후, 하루를 정리하며</div></div>
+      <div class="slot"><div class="day">토요일</div><div class="time">오전 10:00</div><div class="who">주말 아침을 말씀으로</div></div>
     </div>
     <div class="price-note">
-      <span class="pill">첫 모임 무료</span>첫 번째 모임은 참관만 하고 결정하셔도 됩니다. 마음에 들 때 입금해 주세요.<br>
-      <span class="pill">환불</span>사정이 생기면 참여하지 않은 주차만큼 돌려드려요.<br>
-      <span class="pill">함께 신청</span>친구나 가족과 함께 신청하시면 각각 5,000원씩 빼드립니다.<br>
-      <span class="pill">포함</span>주차별 묵상 자료, 영어 단어 정리, Come Away 홈페이지 이용까지 모두 포함이에요.
+      <span class="pill">누구나</span>나이도 상황도 묻지 않아요. 학생이든 직장인이든 육아 중이든 괜찮습니다.<br>
+      <span class="pill">해외도</span>온라인이라 어느 나라에 계셔도 참여할 수 있어요. 시간은 한국 시간 기준입니다.
+    </div>
+  </div>
+
+  <div class="sec">
+    <div class="sec-title">⏰ 60분은 이렇게 흘러가요</div>
+    <div class="sec-lead">준비물은 성경과 따뜻한 음료 한 잔. 본문은 망고가 미리 정해서 보내드려요.</div>
+    <div class="flow">
+      <div class="step"><span class="t">0~5분</span><h4>안부</h4>
+        <p>한 주 어떻게 지냈는지 짧게 나눕니다. 늦게 들어와도 괜찮아요.</p></div>
+      <div class="step"><span class="t">5~20분</span><h4>두 번역본을 나란히 놓고 읽기</h4>
+        <p>한국어와 영어를 함께 봅니다. 같은 구절이 다르게 옮겨진 자리를 짚어요. 발음을 지적하지 않는 것이 이 모임의 규칙입니다.</p></div>
+      <div class="step"><span class="t">20~35분</span><h4>다르게 옮겨진 자리 나누기</h4>
+        <p>왜 이 단어를 골랐을까, 원래 뜻은 어디로 흘러갔을까. 영어 단어는 문맥 안에서 자연스럽게 익힙니다.</p></div>
+      <div class="step"><span class="t">35~50분</span><h4>한 주 묵상 나눔 — 적용</h4>
+        <p>이 말씀이 내 하루 어디에 닿았는지 나눕니다. 정답을 말하는 자리가 아니라 솔직해도 되는 자리예요.</p></div>
+      <div class="step"><span class="t">50~60분</span><h4>서로를 위한 기도</h4>
+        <p>나눈 것을 그대로 기도로 올려드리고 마칩니다.</p></div>
+      <div class="step"><span class="t">한 달에 한 번</span><h4>암송 · 영어로 말해보기</h4>
+        <p>그 달에 마음에 남은 구절을 하나 외워 영어로 말해봅니다. 완벽하지 않아도 돼요. 입으로 나오는 순간 그 구절은 내 것이 됩니다.</p></div>
+    </div>
+  </div>
+
+  <div class="sec">
+    <div class="sec-title">📖 본문과 기수는 이렇게 정해요</div>
+    <div class="sec-lead">한 기수 = 성경 한 권. 책이 길면 기수도 길어지고, 참가비도 그만큼 달라집니다.</div>
+    <div class="grid2">
+      <div class="tile"><h4>본문은 망고가 정합니다</h4>
+        <p>각자 원하는 데를 읽는 게 아니라 한 권을 처음부터 끝까지 같이 통과해요. 흐름을 놓치지 않기 위해서예요.</p></div>
+      <div class="tile"><h4>영어 수준으로 반을 나누지 않아요</h4>
+        <p>초급이 상급에게 배우고, 상급은 설명하면서 더 깊어집니다. 잘하는 사람만 말하는 자리가 되지 않도록 진행자가 지킵니다.</p></div>
+      <div class="tile"><h4>참가비는 1주 18,000원</h4>
+        <p>기수 길이만큼만 냅니다. 로마서 1기는 4주니까 72,000원이고, 다음 기수가 6주라면 108,000원이 되는 식이에요.</p></div>
+      <div class="tile"><h4>기본 온라인, 가끔 오프라인</h4>
+        <p>정기모임은 전부 화상이에요. 기수가 끝날 때쯤 원하는 분들끼리 한 번 만나 밥을 먹습니다. 참석은 자유예요.</p></div>
+    </div>
+  </div>
+
+  <div class="sec">
+    <div class="sec-title">✉️ 신청은 이렇게 진행돼요</div>
+    <div class="sec-lead">선착순이 아니에요. 마감 전에 주신 신청서를 함께 보고 반을 배정합니다.</div>
+    <div class="flow">
+      <div class="step"><span class="t">STEP 1</span><h4>신청서를 보내주세요</h4>
+        <p>아래 양식을 채워 보내주시면 됩니다. 이 단계에서는 입금하지 않아요.</p></div>
+      <div class="step"><span class="t">STEP 2</span><h4>망고가 확인합니다</h4>
+        <p>적어주신 시간대와 상황을 보고 반을 배정해요. 선착순이 아니니 급하게 서두르지 않으셔도 됩니다.</p></div>
+      <div class="step"><span class="t">STEP 3</span><h4>개별로 안내드려요</h4>
+        <p>배정된 반, 시작 날짜, 입금 계좌를 남겨주신 연락처로 보내드립니다.</p></div>
+      <div class="step"><span class="t">STEP 4</span><h4>입금하면 확정</h4>
+        <p>안내받은 계좌로 입금하시면 자리가 확정돼요. 첫 모임 링크와 본문 자료를 보내드립니다.</p></div>
     </div>
   </div>
 
   <div class="sec" id="apply">
-    <div class="sec-title">✏️ 신청하기</div>
-    <div class="sec-lead">한 팀이 6~7명이라 자리가 금방 차요. 접수 후 하루 안에 연락드릴게요.</div>
+    <div class="sec-title">✏️ 신청서</div>
+    <div class="sec-lead">지금 입금하지 않으셔도 돼요. 확인 후 개별로 안내드립니다.</div>
 
     <form id="form" onsubmit="return submitForm(event)">
       <label>이름 <span class="req">*</span></label>
@@ -189,55 +242,51 @@ input:focus,select:focus,textarea:focus{border-color:var(--green)}
 
       <label>연락처 <span class="req">*</span></label>
       <input type="text" id="f-contact" placeholder="휴대폰 번호 또는 카카오톡 ID" maxlength="60" required>
-      <div class="hint">배정된 팀과 계좌 안내를 이 연락처로 보내드려요.</div>
+      <div class="hint">반 배정과 계좌 안내를 이 연락처로 보내드려요.</div>
 
       <label>이메일</label>
       <input type="email" id="f-email" placeholder="선택 — 자료를 메일로 받고 싶다면" maxlength="70">
 
-      <label>원하는 모임 시간 <span class="req">*</span></label>
-      <select id="f-slot" required>
-        <option value="">골라 주세요</option>
-        <option>화요일 오전 10시</option>
-        <option>수요일 저녁 8시</option>
-        <option>목요일 저녁 8시</option>
-        <option>토요일 오전 9시</option>
-        <option>아무 때나 괜찮아요</option>
-      </select>
-      <div class="hint">비슷한 시간을 고른 분들끼리 6~7명 한 팀으로 묶어요.</div>
+      <label>참여 가능한 시간대 <span class="req">*</span> <span style="font-family:'Gowun Dodum',sans-serif;color:#a2937f;font-size:12px">— 되는 것 모두 골라주세요</span></label>
+      <div class="opts" id="slot-box">
+        <label class="opt"><input type="checkbox" class="f-slot" value="목요일 오전 10시"><span>목요일 오전 10시<small>아이 보내고 난 오전 시간</small></span></label>
+        <label class="opt"><input type="checkbox" class="f-slot" value="화요일 밤 9시"><span>화요일 밤 9시<small>퇴근 후, 하루를 정리하며</small></span></label>
+        <label class="opt"><input type="checkbox" class="f-slot" value="토요일 오전 10시"><span>토요일 오전 10시<small>주말 아침을 말씀으로</small></span></label>
+      </div>
+      <div class="hint">여러 개 고를수록 배정이 수월해요. 한국 시간 기준입니다.</div>
 
-      <label>참여 방식</label>
+      <label>오프라인 모임에도 오실 수 있나요</label>
       <select id="f-mode">
-        <option>온라인 + 오프라인 모두</option>
+        <option>기수 끝날 때 한 번은 만나고 싶어요</option>
         <option>온라인만 참여할래요</option>
-        <option>아직 정하지 못했어요</option>
+        <option>아직 모르겠어요</option>
       </select>
 
-      <label>영어는 어느 정도이신가요</label>
-      <select id="f-level">
-        <option>입문 — 영어 성경은 거의 처음이에요</option>
-        <option>초급 — 짧은 문장은 읽을 수 있어요</option>
-        <option>중급 — 사전을 보면 읽어낼 수 있어요</option>
-        <option>상급 — 영어로 나눔도 가능해요</option>
-      </select>
-      <div class="hint">실력으로 팀을 나누지는 않아요. 자료를 준비할 때 참고합니다.</div>
+      <label>영어와 성경, 지금까지 어떠셨나요</label>
+      <textarea id="f-exp" placeholder="영어 성경을 읽어본 적 있는지, 성경공부 모임 경험이 있는지 편하게 적어 주세요. 잘하지 못해도 전혀 상관없어요 — 자료를 준비할 때만 참고합니다." maxlength="600"></textarea>
+      <div class="hint">이걸로 반을 나누지 않아요. 수준 구분 없이 한 반에서 함께합니다.</div>
 
-      <label>참가비 납부 방식</label>
-      <select id="f-plan">
-        <option>매달 납부 (45,000원)</option>
-        <option>3개월 한 번에 (126,000원)</option>
-        <option>첫 모임 참관 후 정할래요</option>
-      </select>
+      <label>신청하게 된 마음과 기대 <span class="req">*</span></label>
+      <textarea id="f-motive" placeholder="어떤 계기로 신청하시나요? 이 4주가 끝났을 때 무엇이 달라져 있으면 좋겠나요?" maxlength="800" required></textarea>
 
       <label>입금하실 분 성함</label>
       <input type="text" id="f-payer" placeholder="신청자와 다를 경우에만 적어 주세요" maxlength="20">
 
-      <label>신청하게 된 마음을 들려주세요</label>
-      <textarea id="f-motive" placeholder="어떤 계기로 신청하시나요? 이 모임에서 무엇을 얻고 싶으신가요? 편하게 적어 주세요." maxlength="700"></textarea>
+      <label>어떻게 알고 오셨나요</label>
+      <select id="f-source">
+        <option value="">골라 주세요</option>
+        <option>아는 사람 소개</option>
+        <option>인스타그램</option>
+        <option>카카오톡 오픈채팅 · 단톡방</option>
+        <option>Come Away 홈페이지</option>
+        <option>교회에서 들었어요</option>
+        <option>기타</option>
+      </select>
 
       <div class="chk">
         <input type="checkbox" id="f-agree" required>
         <label for="f-agree" style="margin:0;font-family:'Gowun Dodum',sans-serif;color:var(--ink2);font-size:13.5px">
-          모임 운영과 연락을 위해 위 정보를 수집·이용하는 데 동의합니다. 모임이 끝나면 파기해요.
+          모임 운영과 연락을 위해 위 정보를 수집·이용하는 데 동의합니다. 기수가 끝나면 파기해요.
         </label>
       </div>
 
@@ -246,15 +295,15 @@ input:focus,select:focus,textarea:focus{border-color:var(--green)}
     </form>
 
     <div class="done" id="done">
-      <div class="em">🐟🍞</div>
+      <div class="em">🍯</div>
       <h3>신청서가 잘 도착했어요!</h3>
-      <p>하루 안에 남겨주신 연락처로 배정된 팀과<br>입금 계좌를 안내해 드릴게요.</p>
+      <p>선착순이 아니니 마음 놓으셔도 됩니다.<br>확인하고 남겨주신 연락처로 개별 안내드릴게요.</p>
       <div class="card">
         <b>다음 순서예요</b><br>
-        1. 팀 배정과 계좌를 안내받아요<br>
-        2. 첫 모임에 참관해요 (무료)<br>
-        3. 함께하기로 마음이 정해지면 그때 입금해요<br>
-        4. Come Away 홈페이지 멤버로 등록해 드려요
+        1. 망고가 신청서를 확인해요<br>
+        2. 배정된 반 · 시작 날짜 · 계좌를 안내받아요<br>
+        3. 입금하면 자리가 확정돼요<br>
+        4. 첫 모임 링크와 로마서 1~4장 자료를 받아요
       </div>
     </div>
   </div>
@@ -262,19 +311,23 @@ input:focus,select:focus,textarea:focus{border-color:var(--green)}
   <div class="sec">
     <div class="sec-title">💬 자주 묻는 질문</div>
     <div class="faq"><h4>영어를 잘 못하는데 괜찮을까요?</h4>
-      <p>괜찮아요. 중학교 수준의 문법이면 충분하고, 모르는 단어는 모임에서 함께 찾아봅니다. 발음이나 실력을 지적하지 않는 것이 이 모임의 규칙이에요.</p></div>
-    <div class="faq"><h4>한 번 빠지면 따라가기 어렵나요?</h4>
-      <p>본문은 매주 새로 정하기 때문에 한 주 빠져도 다음 주에 바로 이어갈 수 있어요. 놓친 주차 자료는 따로 보내드립니다.</p></div>
-    <div class="faq"><h4>지방에 살아도 참여할 수 있나요?</h4>
-      <p>네. 정기모임은 전부 온라인이라 어디서든 괜찮아요. 오프라인 모임은 원하는 분만 오시면 됩니다.</p></div>
+      <p>괜찮아요. 수준으로 반을 나누지 않는 게 이 모임의 원칙입니다. 모르는 단어는 함께 찾아보고, 발음이나 실력을 지적하지 않아요.</p></div>
+    <div class="faq"><h4>정말 선착순이 아닌가요?</h4>
+      <p>네. 마감 전에 주신 신청서를 모아서 함께 보고 반을 배정합니다. 늦게 신청했다고 밀리지 않아요.</p></div>
+    <div class="faq"><h4>계좌는 언제 알려주시나요?</h4>
+      <p>신청서를 확인한 뒤 개별로 안내드려요. 지금 미리 입금하지 않으셔도 됩니다.</p></div>
+    <div class="faq"><h4>한 주 빠지면 어떻게 되나요?</h4>
+      <p>그 주 본문 자료와 나눔 요약을 따로 보내드려요. 다음 주에 바로 이어갈 수 있습니다.</p></div>
+    <div class="faq"><h4>왜 참가비가 기수마다 다른가요?</h4>
+      <p>기수 하나가 성경 한 권이라 책 길이에 따라 기간이 달라지기 때문이에요. 1주 18,000원으로 계산해서, 로마서 1기는 4주 72,000원입니다.</p></div>
     <div class="faq"><h4>교회를 다니지 않아도 되나요?</h4>
-      <p>교단이나 교회 출석 여부를 묻지 않아요. 말씀을 진지하게 읽고 싶은 마음이면 충분합니다.</p></div>
-    <div class="faq"><h4>중간에 그만두면 어떻게 되나요?</h4>
-      <p>참여하지 않은 주차만큼 계산해서 돌려드려요. 미리 말씀만 해주시면 됩니다.</p></div>
+      <p>교단이나 출석 여부를 묻지 않아요. 말씀을 진지하게 읽고 싶은 마음이면 충분합니다.</p></div>
+    <div class="faq"><h4>다음 기수는 언제인가요?</h4>
+      <p>로마서 1기가 끝나면 이어서 다음 책으로 엽니다. 이번에 시간이 안 맞으시면 신청서에 그렇게 적어 주세요. 다음 기수 열릴 때 먼저 연락드릴게요.</p></div>
   </div>
 
   <div class="foot">
-    Come Away · 작은 오병이어 상점<br>
+    허니 베이커리 · Come Away 작은 오병이어 상점<br>
     <a href="/">홈페이지 둘러보기 →</a>
   </div>
 </div>
@@ -287,6 +340,15 @@ async function submitForm(e){
   var btn = document.getElementById('btn');
   var err = document.getElementById('err');
   err.style.display = 'none';
+
+  var slots = [].slice.call(document.querySelectorAll('.f-slot:checked')).map(function(c){ return c.value; });
+  if(slots.length === 0){
+    err.textContent = '참여 가능한 시간대를 하나 이상 골라 주세요.';
+    err.style.display = 'block';
+    document.getElementById('slot-box').scrollIntoView({behavior:'smooth', block:'center'});
+    return false;
+  }
+
   btn.disabled = true;
   btn.textContent = '보내는 중이에요…';
 
@@ -295,11 +357,12 @@ async function submitForm(e){
     name: val('f-name'),
     contact: val('f-contact'),
     email: val('f-email'),
-    slot: val('f-slot'),
+    slot: slots.join(', '),
     mode: val('f-mode'),
-    level: val('f-level'),
-    plan: val('f-plan'),
+    plan: '1기 로마서 · 4주 · 72,000원',
     payer: val('f-payer'),
+    exp: val('f-exp'),
+    source: val('f-source'),
     motive: val('f-motive')
   };
 
@@ -315,7 +378,7 @@ async function submitForm(e){
     document.getElementById('done').style.display = 'block';
     document.getElementById('apply').scrollIntoView({behavior:'smooth', block:'start'});
   }catch(ex){
-    err.textContent = '신청서를 보내지 못했어요. 잠시 후 다시 시도해 주시거나, 아래 연락처로 직접 신청해 주세요. (' + ex.message + ')';
+    err.textContent = '신청서를 보내지 못했어요. 잠시 후 다시 시도해 주시거나, 인스타그램 DM으로 직접 신청해 주세요. (' + ex.message + ')';
     err.style.display = 'block';
     btn.disabled = false;
     btn.textContent = '다시 보내기';
