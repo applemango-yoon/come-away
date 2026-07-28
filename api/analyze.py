@@ -1,6 +1,7 @@
 import json
 import os
 import re
+import difflib
 import urllib.parse
 import urllib.request
 import urllib.error
@@ -83,17 +84,11 @@ def _find_span(text, span, lang):
     return (i, i + len(span)) if i >= 0 else (-1, -1)
 
 
-def _wrap_spans(text, spans, lang):
-    """겹치지 않게 각 표현의 첫 등장 위치를 [H]...[/H]로 감싼다."""
-    marks = []
-    for s in spans:
-        st, en = _find_span(text, s, lang)
-        if st >= 0:
-            marks.append((st, en))
-    marks.sort()
+def _wrap_ranges(text, ranges):
+    """지정한 위치들을 [H]...[/H]로 감싼다. (겹치는 것은 앞의 것만)"""
     out, last = [], 0
-    for st, en in marks:
-        if st < last:
+    for st, en in sorted(ranges):
+        if st < last or st < 0 or en > len(text) or en <= st:
             continue
         out.append(text[last:st])
         out.append('[H]' + text[st:en] + '[/H]')
@@ -102,35 +97,123 @@ def _wrap_spans(text, spans, lang):
     return ''.join(out)
 
 
+# ── 두 번역본을 '기계적으로' 대조해서 다른 자리를 찾아낸다 ──────────────
+# AI가 다른 자리를 놓치는 일이 잦아서(여호수아 1:10-13처럼 차이가 많은데 하나도 못 잡는 경우),
+# 코드가 직접 낱말 단위로 비교해 '다른 자리'를 빠짐없이 짝으로 찾아낸다.
+_TOK_EN = re.compile(r"[A-Za-z][A-Za-z'’]*")
+_TOK_KO = re.compile(r'\S+')
+
+
+def _tokens(text, lang):
+    pat = _TOK_EN if lang == 'en' else _TOK_KO
+    return [(m.group(0), m.start(), m.end()) for m in pat.finditer(text or '')]
+
+
+def _tok_norm(t, lang):
+    return _norm_en(t) if lang == 'en' else _norm_ko(t)
+
+
+def auto_pairs(pa, pb, lang, limit=16):
+    """두 본문에서 서로 다른 자리를 (A위치, B위치) 짝으로 돌려준다."""
+    ta, tb = _tokens(pa, lang), _tokens(pb, lang)
+    if not ta or not tb:
+        return []
+    na = [_tok_norm(t[0], lang) for t in ta]
+    nb = [_tok_norm(t[0], lang) for t in tb]
+    out = []
+    for tag, i1, i2, j1, j2 in difflib.SequenceMatcher(None, na, nb, autojunk=False).get_opcodes():
+        if tag == 'equal':
+            continue
+        # 한쪽이 비어 있으면(한 번역본에만 있는 말) 앞뒤 낱말을 함께 묶어 '짝'을 만든다
+        if i1 == i2 or j1 == j2:
+            if i1 > 0 and j1 > 0:
+                i1 -= 1
+                j1 -= 1
+            elif i2 < len(ta) and j2 < len(tb):
+                i2 += 1
+                j2 += 1
+            else:
+                continue
+        if i1 >= i2 or j1 >= j2:
+            continue
+        # 한국어는 덩어리째 칠하면 지저분하므로, 낱말 수가 같으면 낱말끼리 짝지어 쪼갠다
+        blocks = [(i1, i2, j1, j2)]
+        if lang == 'ko' and 1 < (i2 - i1) == (j2 - j1) <= 3:
+            blocks = [(i1 + k, i1 + k + 1, j1 + k, j1 + k + 1) for k in range(i2 - i1)]
+        for x1, x2, y1, y2 in blocks:
+            if lang == 'ko' and (x2 - x1 > 6 or y2 - y1 > 6):
+                continue
+            if ' '.join(na[x1:x2]).strip() == ' '.join(nb[y1:y2]).strip():
+                continue
+            out.append(((ta[x1][1], ta[x2 - 1][2]), (tb[y1][1], tb[y2 - 1][2])))
+        if len(out) >= limit:
+            break
+    return out
+
+
+def _ko_heads(s):
+    """한국어 어절의 첫 음절 모음 — '문체만 바꾼 자리'를 걸러내는 데 쓴다."""
+    return set(w[0] for w in re.findall(r'[가-힣]+', s or ''))
+
+
+def _ko_style_only(sa, sb):
+    """'내게 부족함이 없으리로다' ↔ '나는 부족한 것이 없습니다'처럼
+    같은 낱말을 어미·문체만 바꿔 쓴 자리인지 판단한다."""
+    A, B = _ko_heads(sa), _ko_heads(sb)
+    if not A or not B:
+        return True
+    return len(A & B) / float(min(len(A), len(B))) >= 0.6
+
+
 def build_highlights(trans, diffs):
-    """AI가 준 '짝(pair)' 정보로 하이라이트를 다시 만든다.
-    → 짝이 맞는 자리만, 그리고 반드시 양쪽 번역본에 함께 표시된다.
-    짝 정보가 없으면 예전 방식(AI 마커)에 동일표현 제거만 적용."""
+    """하이라이트를 서버가 직접 만든다.
+    - 영어(NKJV↔NASB): 코드 대조로 '다른 자리'를 전부 찾고, AI가 준 짝을 더한다.
+    - 한국어(개역개정↔새번역): AI가 고른 짝을 우선 쓰고, 없으면 코드 대조 결과에서
+      '문체만 다른 자리'를 걸러내고 쓴다.
+    어느 경우든 결과는 반드시 양쪽 번역본에 '짝'으로 표시된다."""
     for lang, a, b in PAIR_KEYS:
         ta, tb = trans.get(a), trans.get(b)
         if not isinstance(ta, str) or not isinstance(tb, str):
             continue
         pa, pb = _plain(ta), _plain(tb)
         norm = _norm_en if lang == 'en' else _norm_ko
-        pairs = []
-        for it in ((diffs or {}).get(lang) or []) if isinstance(diffs, dict) else []:
+
+        ai_pairs = []
+        for it in (((diffs or {}).get(lang) or []) if isinstance(diffs, dict) else []):
             if not isinstance(it, dict):
                 continue
             sa = str(it.get(a) or '').strip()
             sb = str(it.get(b) or '').strip()
-            if not sa or not sb:
-                continue
-            if norm(sa) == norm(sb):        # 글자 그대로 같은 표현 → 버림
-                continue
-            if _find_span(pa, sa, lang)[0] < 0 or _find_span(pb, sb, lang)[0] < 0:
-                continue                     # 한쪽이라도 본문에 없으면 짝이 깨지므로 버림
-            pairs.append((sa, sb))
-        if pairs:
-            trans[a] = _wrap_spans(pa, [p[0] for p in pairs], lang)
-            trans[b] = _wrap_spans(pb, [p[1] for p in pairs], lang)
+            if not sa or not sb or norm(sa) == norm(sb):
+                continue                      # 글자 그대로 같은 표현 → 버림
+            ra = _find_span(pa, sa, lang)
+            rb = _find_span(pb, sb, lang)
+            if ra[0] < 0 or rb[0] < 0:
+                continue                      # 한쪽이라도 본문에 없으면 짝이 깨지므로 버림
+            ai_pairs.append((ra, rb))
+
+        auto = auto_pairs(pa, pb, lang)
+        if lang == 'en':
+            pairs = ai_pairs + auto
         else:
-            trans[a] = _prune_one(ta, pb, lang)
-            trans[b] = _prune_one(tb, pa, lang)
+            pairs = ai_pairs or [
+                p for p in auto
+                if not _ko_style_only(pa[p[0][0]:p[0][1]], pb[p[1][0]:p[1][1]])
+            ]
+
+        # 양쪽 동시에 겹침 제거 → 한쪽만 남는 하이라이트가 생기지 않는다
+        pairs.sort(key=lambda p: (p[0][0], p[1][0]))
+        keep, la, lb = [], -1, -1
+        for ra, rb in pairs:
+            if ra[0] < la or rb[0] < lb:
+                continue
+            keep.append((ra, rb))
+            la, lb = ra[1], rb[1]
+            if len(keep) >= 16:
+                break
+
+        trans[a] = _wrap_ranges(pa, [k[0] for k in keep])
+        trans[b] = _wrap_ranges(pb, [k[1] for k in keep])
     return trans
 
 
@@ -222,7 +305,10 @@ PROMPT = '''성경 본문 "{passage}"를 분석해서 아래 JSON 형식으로�
    예: "소생시키시고" ↔ "되살리시고" → 그냥 같은 말이다. 뽑지 마라.
 4) 한국어와 영어를 서로 대응시키는 것. 한국어는 개역개정↔새번역끼리만, 영어는 NKJV↔NASB끼리만 비교한다.
 
-판단 기준 한 줄: "이 두 표현의 차이를 알면 본문을 더 깊이 이해하게 되는가?" 아니면 뽑지 마라. 억지로 개수를 채우지 말고, 진짜 다른 자리만 (보통 2~5쌍) 뽑아라.
+판단 기준 한 줄: "이 두 표현의 차이를 알면 본문을 더 깊이 이해하게 되는가?"
+단, 한국어(개역개정↔새번역)에서만 위 X 규칙을 엄격히 적용하라. 영어(NKJV↔NASB)는 두 본문의 낱말이 조금이라도 다르면 전부 뽑아라 — 시제·조동사·추가된 말도 모두 공부거리다.
+영어 예시(모두 O): spoke ↔ said / will cross over ↔ are to cross / the camp ↔ the midst of the camp / is giving you ↔ will give you / half the tribe ↔ half-tribe
+빠뜨리지 말고 다 찾아라. 본문에 다른 자리가 많으면 10쌍 이상이어도 괜찮다.
 
 {{
   "translations": {{
@@ -261,7 +347,8 @@ words 규칙 (★"영어 사전"이라고 생각하고 뽑아라. 성경 해석�
 - everlasting과 eternal처럼 서로 다른 단어는 하나로 묶지 말고 각각 따로 항목으로 넣어라. ("everlasting life / eternal life"처럼 합치지 마라.)
 - meaning = 표준 영어사전의 사전적 정의(한국어) 2~3개. 문맥 의역·성경식 풀이 금지. 그 단어를 사전에서 찾으면 나오는 뜻을 적어라.
 - nuance = 그 단어가 "영어에서 일상적으로 어떤 어감·용법으로 쓰이는지" + 예문 하나. 성경적 의미로 설명하지 마라. (예: so는 too와 달리 긍정적 강조에 쓴다는 식.)
-- 쉽고 뻔한 단어(the, and, God, is)는 빼고, 배울 가치가 있는 단어·표현 위주로. 최대 10개, 부족하면 있는 만큼만.
+- 쉽고 뻔한 단어(the, and, God, is)는 빼고, 배울 가치가 있는 단어·표현 위주로.
+- ★개수: 반드시 8개 이상 12개까지 뽑아라.★ 5개만 주는 것은 부족하다. 본문이 여러 절이면 절마다 골고루 뽑아라. 중급 이상 학습자에게 유용한 단어(commanded, provisions, possess, rest, servant, remember, prepare, officers, tribe, inheritance 같은 수준)면 충분히 넣을 만하다. 정말로 본문이 짧아 단어가 모자랄 때만 8개 미만이어도 된다.
 - 원어(헬라어/히브리어)는 words에 넣지 마 (originals에서).
 originals는 이 본문에서 가장 중요한 원어 딱 3개만.
 Strong's 번호는 반드시 정확해야 한다 (블루레터바이블·바이블허브에서 검증 가능해야 하므로).
@@ -298,7 +385,7 @@ DEFINE_PROMPT = '''아래 영어 단어들의 "영어사전 뜻"을 알려줘. �
 JSON만 출력.'''
 
 
-SCHEMA_VER = 9   # 분석 결과 형식 버전. 올리면 이전 캐시를 자동으로 무시하고 다시 분석함.
+SCHEMA_VER = 10  # 분석 결과 형식 버전. 올리면 이전 캐시를 자동으로 무시하고 다시 분석함.
 
 
 def _valid(d):
@@ -427,7 +514,7 @@ class handler(BaseHTTPRequestHandler):
 
             # 단어는 최대 10개까지만 (AI가 더 줘도 잘라냄; 부족하면 있는 만큼)
             if isinstance(data.get('words'), list):
-                data['words'] = data['words'][:10]
+                data['words'] = data['words'][:12]
 
             # 하이라이트는 '짝(diffs)' 정보로 서버가 직접 만든다 → 항상 양쪽에 함께, 같은 표현은 제외
             if isinstance(data.get('translations'), dict):
