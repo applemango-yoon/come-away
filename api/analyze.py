@@ -26,6 +26,59 @@ def mark_highlights(text):
     return re.sub(r'\[H\](.*?)\[/H\]', r'<span class="hl">\1</span>', text)
 
 
+# ── 하이라이트 검증: '똑같은 표현'은 코드로 강제 제거 ────────────────────
+# AI가 규칙을 어기고 동일한 표현(NKJV/NASB 둘 다 "only begotten" 등)을 감싸는 일이 있어
+# 프롬프트에만 의존하지 않고, 서버에서 짝을 직접 대조해 확실히 지운다.
+def _plain(s):
+    return re.sub(r'\[/?H\]', '', s or '')
+
+
+def _norm_en(s):
+    s = (s or '').lower()
+    s = re.sub(r"[^a-z0-9' ]+", ' ', s)
+    return re.sub(r'\s+', ' ', s).strip()
+
+
+def _norm_ko(s):
+    s = re.sub(r'[^가-힣ㄱ-ㆎ0-9a-zA-Z ]+', ' ', s or '')
+    return re.sub(r'\s+', '', s)
+
+
+def _prune_one(text, other_plain, lang):
+    """상대 번역본이 '글자 그대로 똑같은 표현'을 쓰고 있으면 그 하이라이트를 벗긴다."""
+    if lang == 'en':
+        hay = _norm_en(other_plain)
+
+        def same_in_other(sp):
+            n = _norm_en(sp)
+            if not n:
+                return True
+            return re.search(r'(?<![a-z0-9])' + re.escape(n) + r'(?![a-z0-9])', hay) is not None
+    else:
+        hay = _norm_ko(other_plain)
+
+        def same_in_other(sp):
+            n = _norm_ko(sp)
+            return (not n) or (n in hay)
+
+    def repl(m):
+        inner = m.group(1)
+        return inner if same_in_other(inner) else '[H]' + inner + '[/H]'
+
+    return re.sub(r'\[H\](.*?)\[/H\]', repl, text)
+
+
+def prune_identical_highlights(trans):
+    for a, b, lang in (('개역개정', '새번역', 'ko'), ('NKJV', 'NASB', 'en')):
+        ta, tb = trans.get(a), trans.get(b)
+        if not isinstance(ta, str) or not isinstance(tb, str):
+            continue
+        pa, pb = _plain(ta), _plain(tb)
+        trans[a] = _prune_one(ta, pb, lang)
+        trans[b] = _prune_one(tb, pa, lang)
+    return trans
+
+
 def sb(method, path, data=None, silent=False):
     try:
         url = os.environ['SUPABASE_URL'] + '/rest/v1/' + path
@@ -150,7 +203,32 @@ Strong's 번호는 반드시 정확해야 한다 (블루레터바이블·바이�
 추측하지 말고 확실한 것만. JSON만 출력.'''
 
 
-SCHEMA_VER = 7   # 분석 결과 형식 버전. 올리면 이전 캐시를 자동으로 무시하고 다시 분석함.
+DEFINE_PROMPT = '''아래 영어 단어들의 "영어사전 뜻"을 알려줘. 성경 해석이 아니라 표준 영어사전(옥스퍼드·메리엄웹스터 급) 기준이다.
+코드블록 없이 JSON만 출력해.
+
+단어 목록: {words}
+
+{{
+  "defs": [
+    {{
+      "english": "표제어 (입력받은 그대로)",
+      "korean": "가장 대표적인 한국어 대응어 하나 (예: 영원한)",
+      "pos": "품사 (명사/동사/형용사/부사/전치사/접속사/감탄사/동사구/명사구/숙어 중 하나)",
+      "meaning": "표준 영어사전의 사전적 정의를 한국어로 2~3개, 쉼표로 구분. 의역·성경식 풀이 금지.",
+      "nuance": "영어에서 실제 쓰이는 어감·용법 한 문장 + 짧은 예문 하나 (한국어 해석 포함)"
+    }}
+  ]
+}}
+
+규칙:
+- 입력된 단어는 하나도 빠뜨리지 말고 모두 defs에 넣어라. english는 입력 그대로 적어라.
+- meaning은 반드시 사전에 실린 정의여야 한다. 문맥에 맞춘 의역이나 신학적 설명을 넣지 마라.
+- everlasting과 eternal처럼 비슷한 단어도 각각 자기 사전 뜻을 정확히 구분해서 적어라.
+- 한국어 단어가 섞여 있으면 그 단어는 뜻풀이만 간단히 적어라.
+JSON만 출력.'''
+
+
+SCHEMA_VER = 8   # 분석 결과 형식 버전. 올리면 이전 캐시를 자동으로 무시하고 다시 분석함.
 
 
 def _valid(d):
@@ -190,7 +268,10 @@ def _post_json(url, headers, payload):
 
 
 def call_ai(passage, strict=False):
-    content = PROMPT.format(passage=passage)
+    return call_ai_raw(PROMPT.format(passage=passage), strict)
+
+
+def call_ai_raw(content, strict=False):
     if strict:
         content += '\n\n반드시 유효한 JSON 객체 하나만, 다른 텍스트 없이 출력해.'
     errors = []
@@ -238,6 +319,12 @@ class handler(BaseHTTPRequestHandler):
         try:
             length = int(self.headers.get('Content-Length', 0))
             body = json.loads(self.rfile.read(length))
+
+            # ── 단어 뜻만 찾기 (플래시카드 정답용). 단어별로 캐시해서 두 번째부터는 즉시. ──
+            if body.get('mode') == 'define':
+                self._define(body)
+                return
+
             passage = body.get('passage', '').strip()
             if not passage:
                 self._send_json({'error': 'empty', 'message': '본문을 입력해 주세요.'}, 400)
@@ -272,6 +359,10 @@ class handler(BaseHTTPRequestHandler):
             if isinstance(data.get('words'), list):
                 data['words'] = data['words'][:10]
 
+            # 하이라이트 검증 — 상대 번역본과 똑같은 표현이면 코드로 강제 제거
+            if isinstance(data.get('translations'), dict):
+                prune_identical_highlights(data['translations'])
+
             for k in list(data.get('translations', {}).keys()):
                 v = data['translations'][k]
                 if isinstance(v, str):
@@ -287,6 +378,59 @@ class handler(BaseHTTPRequestHandler):
             self._send_json(data)
         except Exception as e:
             self._send_json({'error': str(e)}, 500)
+
+    def _define(self, body):
+        """영어 단어들의 사전적 뜻을 돌려준다. analyses 테이블에 'def:단어'로 캐시."""
+        raw = body.get('words')
+        want = []
+        if isinstance(raw, list):
+            for w in raw:
+                w = str(w or '').strip()
+                if w and w not in want:
+                    want.append(w)
+        want = want[:30]   # 한 번에 최대 30개
+        if not want:
+            self._send_json({'ok': True, 'defs': {}})
+            return
+
+        defs, missing = {}, []
+        for w in want:
+            ck = 'def:' + normalize_key(w)
+            row = sb('GET', 'analyses?passage_key=eq.' + urllib.parse.quote(ck) + '&select=data', silent=True)
+            d = row[0].get('data') if row else None
+            if isinstance(d, dict) and d.get('meaning'):
+                defs[w] = d
+            else:
+                missing.append(w)
+
+        if missing:
+            try:
+                out = call_ai_raw(DEFINE_PROMPT.format(words=', '.join(missing)))
+            except (ValueError, json.JSONDecodeError):
+                out = call_ai_raw(DEFINE_PROMPT.format(words=', '.join(missing)), strict=True)
+            got = out.get('defs') if isinstance(out, dict) else None
+            by_low = {w.lower(): w for w in missing}
+            for item in (got or []):
+                if not isinstance(item, dict):
+                    continue
+                en = str(item.get('english') or '').strip()
+                orig = by_low.get(en.lower(), en)
+                if not orig:
+                    continue
+                d = {
+                    'ko': str(item.get('korean') or '')[:80],
+                    'meaning': str(item.get('meaning') or '')[:400],
+                    'nuance': str(item.get('nuance') or '')[:400],
+                    'pos': str(item.get('pos') or '')[:20],
+                }
+                if not d['meaning']:
+                    continue
+                defs[orig] = d
+                ck = 'def:' + normalize_key(orig)
+                sb('DELETE', 'analyses?passage_key=eq.' + urllib.parse.quote(ck), silent=True)
+                sb('POST', 'analyses', {'passage_key': ck, 'passage': orig, 'data': d}, silent=True)
+
+        self._send_json({'ok': True, 'defs': defs})
 
     def _send_json(self, data, status=200):
         body = json.dumps(data, ensure_ascii=False).encode()

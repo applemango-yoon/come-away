@@ -1529,6 +1529,30 @@ function openFlash() {
   fcIdx = 0; fcFlipped = false;
   renderFlash();
   document.getElementById('flash-modal').classList.add('show');
+  fillMissingMeanings();   // 뜻이 아직 없는 단어는 영어사전에서 찾아 채워 넣는다
+}
+
+/* 뜻이 없는 단어의 '사전적 뜻'을 서버(영어사전)에서 받아와 내 단어장에 저장 */
+let fcLoadingDefs = false;
+async function fillMissingMeanings() {
+  const need = fcList.filter(v => !v.meta).map(v => v.word).filter(Boolean).slice(0, 30);
+  if(!need.length) return;
+  fcLoadingDefs = true; renderFlash();
+  try {
+    const res = await apiFetch('/api/analyze', {method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({mode:'define', words: need})});
+    const out = await res.json().catch(()=>({}));
+    const defs = (out && out.defs) || {};
+    const payload = {};
+    Object.keys(defs).forEach(k => { const d = defs[k]; if(d && d.meaning) { vocabDict[k] = d; payload[k] = d; } });
+    fcList.forEach(v => { if(!v.meta) v.meta = lookupMeaning(v.word); });
+    if(Object.keys(payload).length) {
+      apiFetch('/api/announce', {method:'POST', headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({action:'vocab_add', words:payload})}).catch(()=>{});
+      renderVocab();
+    }
+  } catch(e) { /* 실패해도 카드 자체는 계속 볼 수 있다 */ }
+  fcLoadingDefs = false; renderFlash();
 }
 function closeFlash() { document.getElementById('flash-modal').classList.remove('show'); }
 function renderFlash() {
@@ -1541,7 +1565,7 @@ function renderFlash() {
          ${m.meaning?`<div class="fa-row"><span class="fa-k">뜻</span><span class="fa-v">${esc(m.meaning)}</span></div>`:''}
          ${m.nuance?`<div class="fa-row"><span class="fa-k">뉘앙스</span><span class="fa-v">${esc(m.nuance)}</span></div>`:''}
        </div>`
-    : `<div class="flash-noans">아직 저장된 뜻이 없어요.<br>이 단어가 있는 본문을 한 번 더 분석하고 기록하면 뜻이 함께 저장돼요 🙂</div>`;
+    : `<div class="flash-noans">${fcLoadingDefs ? '영어사전에서 뜻을 찾고 있어요… ⏳' : '뜻을 찾지 못했어요. 잠시 후 다시 열어봐 주세요.'}</div>`;
   document.getElementById('flash-card').innerHTML = fcFlipped
     ? `<div class="flash-back">
          <div class="flash-answord">${esc(v.word)}<button class="tts-btn" title="영어로 듣기" onclick="event.stopPropagation();speak('${jsq(v.word)}','en-US')">🔊</button></div>
