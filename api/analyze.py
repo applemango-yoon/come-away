@@ -68,14 +68,69 @@ def _prune_one(text, other_plain, lang):
     return re.sub(r'\[H\](.*?)\[/H\]', repl, text)
 
 
-def prune_identical_highlights(trans):
-    for a, b, lang in (('개역개정', '새번역', 'ko'), ('NKJV', 'NASB', 'en')):
+PAIR_KEYS = (('ko', '개역개정', '새번역'), ('en', 'NKJV', 'NASB'))
+
+
+def _find_span(text, span, lang):
+    """본문에서 표현의 위치를 찾는다. 영어는 대소문자 무시 + 단어 경계 우선."""
+    if lang == 'en':
+        m = re.search(r'(?<![A-Za-z0-9])' + re.escape(span) + r'(?![A-Za-z0-9])', text, re.I)
+        if m:
+            return m.start(), m.end()
+        i = text.lower().find(span.lower())
+        return (i, i + len(span)) if i >= 0 else (-1, -1)
+    i = text.find(span)
+    return (i, i + len(span)) if i >= 0 else (-1, -1)
+
+
+def _wrap_spans(text, spans, lang):
+    """겹치지 않게 각 표현의 첫 등장 위치를 [H]...[/H]로 감싼다."""
+    marks = []
+    for s in spans:
+        st, en = _find_span(text, s, lang)
+        if st >= 0:
+            marks.append((st, en))
+    marks.sort()
+    out, last = [], 0
+    for st, en in marks:
+        if st < last:
+            continue
+        out.append(text[last:st])
+        out.append('[H]' + text[st:en] + '[/H]')
+        last = en
+    out.append(text[last:])
+    return ''.join(out)
+
+
+def build_highlights(trans, diffs):
+    """AI가 준 '짝(pair)' 정보로 하이라이트를 다시 만든다.
+    → 짝이 맞는 자리만, 그리고 반드시 양쪽 번역본에 함께 표시된다.
+    짝 정보가 없으면 예전 방식(AI 마커)에 동일표현 제거만 적용."""
+    for lang, a, b in PAIR_KEYS:
         ta, tb = trans.get(a), trans.get(b)
         if not isinstance(ta, str) or not isinstance(tb, str):
             continue
         pa, pb = _plain(ta), _plain(tb)
-        trans[a] = _prune_one(ta, pb, lang)
-        trans[b] = _prune_one(tb, pa, lang)
+        norm = _norm_en if lang == 'en' else _norm_ko
+        pairs = []
+        for it in ((diffs or {}).get(lang) or []) if isinstance(diffs, dict) else []:
+            if not isinstance(it, dict):
+                continue
+            sa = str(it.get(a) or '').strip()
+            sb = str(it.get(b) or '').strip()
+            if not sa or not sb:
+                continue
+            if norm(sa) == norm(sb):        # 글자 그대로 같은 표현 → 버림
+                continue
+            if _find_span(pa, sa, lang)[0] < 0 or _find_span(pb, sb, lang)[0] < 0:
+                continue                     # 한쪽이라도 본문에 없으면 짝이 깨지므로 버림
+            pairs.append((sa, sb))
+        if pairs:
+            trans[a] = _wrap_spans(pa, [p[0] for p in pairs], lang)
+            trans[b] = _wrap_spans(pb, [p[1] for p in pairs], lang)
+        else:
+            trans[a] = _prune_one(ta, pb, lang)
+            trans[b] = _prune_one(tb, pa, lang)
     return trans
 
 
@@ -149,26 +204,36 @@ PROMPT = '''성경 본문 "{passage}"를 분석해서 아래 JSON 형식으로�
 
 본문이 여러 절 범위(예: 시편 23:1-3)라면 그 범위의 모든 절을 포함해서 분석해줘.
 
-■ 하이라이트 규칙 — 아주 엄격하게 판단하라 (가장 중요):
-목적: "같은 언어의 두 번역본을 나란히 놓고 비교했을 때, 서로 '다른 단어/표현'을 쓴 자리"만 [H]...[/H] 로 감싼다. 두 번역본이 글자 그대로 똑같이 쓴 자리는 절대 감싸지 않는다.
+■ 비교 규칙 — 가장 중요. "짝(pair)"으로만 생각하라:
+하이라이트의 목적은 "같은 뜻인데 번역본마다 '다른 낱말'을 골라서, 그 차이가 뉘앙스·이해에 도움이 되는 자리"를 보여주는 것이다.
+그래서 결과는 반드시 **두 번역본의 표현이 한 쌍**으로 나와야 한다. 한쪽만 있는 하이라이트는 존재할 수 없다.
 
-반드시 아래 순서로 판단하라:
-1) 한국어쌍만 비교: 개역개정 ↔ 새번역. 두 번역이 같은 의미를 "서로 다른 낱말/표현"으로 옮긴 자리만 양쪽 다 감싼다.
-   예(감쌈): 독생자 ↔ 외아들, 멸망하지 않고 ↔ 죽지 않고, 영생 ↔ 영원한 생명.
-   두 한국어 번역이 똑같이 쓴 말(예: 하나님, 세상, 믿는)은 감싸지 않는다.
-2) 영어쌍만 비교: NKJV ↔ NASB. 두 번역이 "서로 다른 단어"를 쓴 자리만 양쪽 다 감싼다.
-   예(감쌈): everlasting ↔ eternal.
-   ★두 영어 번역이 글자 그대로 똑같은 표현이면 절대 감싸지 마라.★ 예: NKJV와 NASB가 둘 다 "only begotten Son"이면 감싸지 않는다(동일하므로). 둘 다 "perish"·"believes"·"so loved"면 감싸지 않는다.
-3) 한국어와 영어를 서로 대응시켜 감싸지 마라. (예: 한국어 '독생자'가 다르다고 해서 영어 'only begotten Son'까지 감싸는 것은 금지. 영어는 오직 NKJV↔NASB끼리만 비교한다.)
-4) 문법 차이만 다른 것은 감싸지 마라: 조사·어미('~은/는','~이/가','~을/를'), 어순, 띄어쓰기, 문장부호.
-5) 마지막 자기검증: 감싼 표현 하나하나에 대해 "같은 언어의 다른 번역본은 이 자리를 '진짜 다른 단어'로 썼는가?"를 확인하라. 답이 '아니오(똑같음)'이면 그 [H]를 반드시 제거하라. 감싼 것은 항상 짝(다른 번역본의 대응 표현)과 함께 서로 달라야 한다.
+짝으로 뽑아야 하는 것 (O):
+- 서로 다른 낱말을 골랐고, 그 차이에서 배울 게 있는 자리.
+- 예: 독생자 ↔ 외아들 / 멸망하지 않고 ↔ 죽지 않고 / 영생 ↔ 영원한 생명
+- 예(영어): everlasting ↔ eternal / want ↔ lack / still ↔ quiet / leads ↔ guides
+
+절대 뽑으면 안 되는 것 (X):
+1) 두 번역이 글자 그대로 똑같은 표현. (예: 둘 다 "only begotten Son", 둘 다 "perish", 둘 다 "so loved")
+2) 같은 낱말을 문체·어미만 바꿔 쓴 것. ★이것이 가장 흔한 실수다★
+   예: "내게 부족함이 없으리로다" ↔ "나는 부족한 것이 없습니다" → 둘 다 '부족'+'없다'라는 같은 낱말이다. 문어체/구어체 차이일 뿐이므로 뽑지 마라.
+   조사·어미(~은/는, ~이/가, ~하시는도다/~하십니다), 어순, 띄어쓰기, 문장부호 차이도 마찬가지로 뽑지 마라.
+3) 뜻도 어감도 완전히 같은 단순 동의어 — 배울 게 없는 자리.
+   예: "소생시키시고" ↔ "되살리시고" → 그냥 같은 말이다. 뽑지 마라.
+4) 한국어와 영어를 서로 대응시키는 것. 한국어는 개역개정↔새번역끼리만, 영어는 NKJV↔NASB끼리만 비교한다.
+
+판단 기준 한 줄: "이 두 표현의 차이를 알면 본문을 더 깊이 이해하게 되는가?" 아니면 뽑지 마라. 억지로 개수를 채우지 말고, 진짜 다른 자리만 (보통 2~5쌍) 뽑아라.
 
 {{
   "translations": {{
-    "개역개정": "(범위 전체 본문, 다른 표현은 [H]...[/H] 로 감싸기)",
-    "새번역": "(범위 전체 본문, 다른 표현은 [H]...[/H] 로 감싸기)",
-    "NKJV": "(full text of the whole range, wrap different expressions in [H]...[/H])",
-    "NASB": "(full text of the whole range, wrap different expressions in [H]...[/H])"
+    "개역개정": "(범위 전체 본문, 표시 없는 순수 본문)",
+    "새번역": "(범위 전체 본문, 표시 없는 순수 본문)",
+    "NKJV": "(full text of the whole range, plain text)",
+    "NASB": "(full text of the whole range, plain text)"
+  }},
+  "diffs": {{
+    "ko": [ {{"개역개정": "독생자", "새번역": "외아들"}} ],
+    "en": [ {{"NKJV": "want", "NASB": "lack"}} ]
   }},
   "words": [
     {{
@@ -200,6 +265,11 @@ words 규칙 (★"영어 사전"이라고 생각하고 뽑아라. 성경 해석�
 - 원어(헬라어/히브리어)는 words에 넣지 마 (originals에서).
 originals는 이 본문에서 가장 중요한 원어 딱 3개만.
 Strong's 번호는 반드시 정확해야 한다 (블루레터바이블·바이블허브에서 검증 가능해야 하므로).
+diffs 규칙 (다시 강조):
+- diffs.ko의 각 항목은 반드시 "개역개정"과 "새번역" 두 키를 모두 가져야 하고, 두 값은 서로 달라야 한다.
+- diffs.en의 각 항목은 반드시 "NKJV"와 "NASB" 두 키를 모두 가져야 하고, 두 값은 서로 달라야 한다.
+- 각 값은 해당 번역본 본문에 "글자 그대로 들어 있는" 짧은 표현이어야 한다 (본문에서 그대로 잘라낸 조각). 문장 전체를 넣지 마라.
+- translations 본문에는 아무 표시도 하지 마라. 하이라이트는 diffs만 보고 만든다.
 추측하지 말고 확실한 것만. JSON만 출력.'''
 
 
@@ -228,7 +298,7 @@ DEFINE_PROMPT = '''아래 영어 단어들의 "영어사전 뜻"을 알려줘. �
 JSON만 출력.'''
 
 
-SCHEMA_VER = 8   # 분석 결과 형식 버전. 올리면 이전 캐시를 자동으로 무시하고 다시 분석함.
+SCHEMA_VER = 9   # 분석 결과 형식 버전. 올리면 이전 캐시를 자동으로 무시하고 다시 분석함.
 
 
 def _valid(d):
@@ -359,9 +429,10 @@ class handler(BaseHTTPRequestHandler):
             if isinstance(data.get('words'), list):
                 data['words'] = data['words'][:10]
 
-            # 하이라이트 검증 — 상대 번역본과 똑같은 표현이면 코드로 강제 제거
+            # 하이라이트는 '짝(diffs)' 정보로 서버가 직접 만든다 → 항상 양쪽에 함께, 같은 표현은 제외
             if isinstance(data.get('translations'), dict):
-                prune_identical_highlights(data['translations'])
+                build_highlights(data['translations'], data.get('diffs'))
+                data.pop('diffs', None)
 
             for k in list(data.get('translations', {}).keys()):
                 v = data['translations'][k]
