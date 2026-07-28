@@ -878,7 +878,7 @@ function logout() {
 let dailyData = null;
 async function loadDaily() {
   try {
-    const res = await fetch('/api/daily');
+    const res = await fetch('/api/announce?daily=1');
     dailyData = await res.json().catch(()=>null);
   } catch(e) { dailyData = null; }
   const banner = document.getElementById('daily-banner');
@@ -923,8 +923,8 @@ async function adminSaveDaily() {
   const start = document.getElementById('daily-start').value;
   const text = document.getElementById('daily-invite-text-in').value.trim();
   const link = document.getElementById('daily-invite-link-in').value.trim();
-  const res = await apiFetch('/api/daily', {method:'POST', headers:{'Content-Type':'application/json'},
-    body:JSON.stringify({passages, start, text, link})});
+  const res = await apiFetch('/api/announce', {method:'POST', headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({action:'daily_set', passages, start, text, link})});
   const out = await res.json().catch(()=>({}));
   if(!res.ok) { toast(out.message || '저장하지 못했어요.'); return; }
   toast(`오늘의 말씀 저장! (총 ${out.total||0}개)`);
