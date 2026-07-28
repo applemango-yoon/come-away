@@ -17,6 +17,7 @@
     { "src": "/api/backup", "dest": "/api/backup.py" },
     { "src": "/api/remind", "dest": "/api/remind.py" },
     { "src": "/api/push", "dest": "/api/push.py" },
+    { "src": "/api/daily", "dest": "/api/daily.py" },
     { "src": "/(.*)", "dest": "/public/index.html" }
   ]
 }

@@ -91,6 +91,16 @@ textarea:focus{border-color:var(--green)}
 .word-row{display:flex;gap:10px;margin-bottom:6px;font-size:14.5px;align-items:flex-start}
 .wk{font-family:'Jua',sans-serif;color:var(--green-d);font-size:11px;min-width:64px;flex-shrink:0;padding-top:2px}
 .wv{color:var(--ink2);line-height:1.75}
+.words-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+.words-grid .word-card{margin-bottom:0}
+.tts-btn{background:none;border:none;cursor:pointer;font-size:13px;padding:0 3px;vertical-align:middle;opacity:.65;line-height:1}
+.tts-btn:hover{opacity:1}
+.daily-banner{display:flex;align-items:center;gap:9px;background:linear-gradient(100deg,var(--terra-l),var(--soft-yellow));border:2px solid var(--terra);border-radius:14px;padding:11px 14px;margin-bottom:14px;cursor:pointer;box-shadow:0 3px 0 rgba(140,110,80,.1)}
+.daily-banner:hover{filter:brightness(.98)}
+.daily-tag{font-family:'Jua',sans-serif;font-size:12px;color:var(--terra-d);white-space:nowrap}
+.daily-passage{font-family:'Jua',sans-serif;font-size:16px;color:var(--ink);flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.daily-more{font-size:12px;color:var(--terra-d);font-weight:700;white-space:nowrap}
+@media(max-width:420px){.words-grid{grid-template-columns:1fr}}
 .orig-card{border:2px solid var(--line-l);border-radius:12px;padding:14px 16px;margin-bottom:10px;background:var(--soft-yellow);border-left:5px solid var(--terra)}
 .orig-word{font-size:19px;font-weight:700;color:var(--terra-d);margin-bottom:2px}
 .orig-word span{font-size:12px;color:var(--ink2);font-weight:400;margin-left:8px}
@@ -314,7 +324,11 @@ textarea:focus{border-color:var(--green)}
       <p style="font-size:12px;color:var(--ink2);line-height:1.7;margin:-4px 0 12px">관리자가 등록한 이름으로 들어와요. 이미 등록된 분은 <b>이름만</b> 입력하면 돼요.</p>
       <div class="modal-field">
         <label class="modal-label">이름 / 닉네임</label>
-        <input type="text" id="name-input" maxlength="30" placeholder="예: 망고" onkeydown="if(event.key==='Enter')saveName()">
+        <input type="text" id="name-input" maxlength="30" placeholder="예: 망고" onkeydown="if(event.key==='Enter')document.getElementById('pw-input').focus()">
+      </div>
+      <div class="modal-field">
+        <label class="modal-label">비밀번호 <span style="font-size:10px;opacity:.6">(처음 로그인은 0000)</span></label>
+        <input type="password" id="pw-input" maxlength="60" placeholder="0000" onkeydown="if(event.key==='Enter')saveName()">
       </div>
       <div class="modal-actions">
         <button class="modal-save" id="save-name-btn" onclick="saveName()">들어가기 🚪</button>
@@ -342,6 +356,10 @@ textarea:focus{border-color:var(--green)}
         <label class="modal-label">주간 소식 메일 <span style="font-size:10px;opacity:.6">(선택 — 아침 묵상 리마인더를 받으려면 입력)</span></label>
         <input type="text" id="email-input" maxlength="100" placeholder="you@example.com" onkeydown="if(event.key==='Enter')saveProfile()">
       </div>
+      <div class="modal-field">
+        <label class="modal-label">비밀번호 변경 <span style="font-size:10px;opacity:.6">(바꾸려면 새 비밀번호 입력)</span></label>
+        <input type="password" id="newpw-input" maxlength="60" placeholder="새 비밀번호" onkeydown="if(event.key==='Enter')saveProfile()">
+      </div>
       <div class="modal-actions" style="justify-content:space-between">
         <button class="modal-cancel" onclick="logout()">🚪 로그아웃</button>
         <button class="modal-save" onclick="saveProfile()">저장 💾</button>
@@ -352,6 +370,23 @@ textarea:focus{border-color:var(--green)}
 </div>
 
 <div class="toast" id="toast"></div>
+
+<!-- 📢 오늘의 말씀 모달 -->
+<div class="modal-backdrop" id="daily-modal" onclick="if(event.target===this)this.classList.remove('show')">
+  <div class="modal">
+    <div class="modal-title">📢 &nbsp;오늘의 말씀</div>
+    <div id="daily-modal-passage" style="font-family:'Jua',sans-serif;font-size:22px;color:var(--terra-d);text-align:center;margin:8px 0 16px">—</div>
+    <button class="btn btn-primary" onclick="analyzeDaily()">이 본문 분석하기 🔍</button>
+    <div id="daily-invite" style="display:none;margin-top:18px;border-top:2px dashed var(--line-l);padding-top:15px">
+      <div style="font-family:'Jua',sans-serif;font-size:14px;color:var(--green-d);margin-bottom:8px">🌍 함께 영어로 말씀 묵상해요</div>
+      <div id="daily-invite-text" style="font-size:13px;color:var(--ink2);line-height:1.8;margin-bottom:12px"></div>
+      <a id="daily-invite-link" href="#" target="_blank" rel="noopener" class="btn btn-primary" style="display:block;text-align:center;text-decoration:none;box-sizing:border-box">참여하기 (유료) →</a>
+    </div>
+    <div class="modal-actions" style="margin-top:14px">
+      <button class="modal-cancel" onclick="document.getElementById('daily-modal').classList.remove('show')">닫기</button>
+    </div>
+  </div>
+</div>
 
 <!-- 오병이어 나누기/사용 모달 -->
 <div class="modal-backdrop" id="shell-modal" onclick="if(event.target===this)closeShell()">
@@ -455,6 +490,11 @@ textarea:focus{border-color:var(--green)}
 
 <!-- ☀️ 묵상 -->
 <div id="tab-study" class="page active">
+  <div id="daily-banner" class="daily-banner" style="display:none" onclick="openDaily()">
+    <span class="daily-tag">📢 오늘의 말씀</span>
+    <span class="daily-passage" id="daily-banner-text">—</span>
+    <span class="daily-more">보기 ›</span>
+  </div>
   <div class="card">
     <div class="card-title">📖 오늘의 본문</div>
     <input type="text" id="passage" placeholder="예: 요한복음 3:16 · 시편 23:1-3" onkeydown="if(event.key==='Enter')analyze()">
@@ -564,6 +604,28 @@ textarea:focus{border-color:var(--green)}
   <div class="card">
     <div class="card-title">📊 한눈에 보기</div>
     <div class="stat-row" id="admin-summary"></div>
+  </div>
+  <div class="card">
+    <div class="card-title">📢 오늘의 말씀 설정</div>
+    <p style="font-size:12px;color:var(--ink2);line-height:1.6;margin-bottom:10px">본문을 <b>한 줄에 하나씩</b> 순서대로 적으면, 시작일부터 <b>하루에 하나씩</b> 자동으로 '오늘의 말씀'에 올라가요. (다 돌면 처음부터 반복)</p>
+    <div class="modal-field">
+      <label class="modal-label">본문 순서 (한 줄에 하나)</label>
+      <textarea id="daily-passages" placeholder="요한복음 1장&#10;요한복음 2장&#10;요한복음 3장" style="min-height:120px"></textarea>
+    </div>
+    <div class="modal-field">
+      <label class="modal-label">시작일 <span style="font-size:10px;opacity:.6">(이 날짜의 말씀 = 첫 번째 본문)</span></label>
+      <input type="date" id="daily-start" style="font-family:'Gowun Dodum',sans-serif">
+    </div>
+    <div class="modal-field">
+      <label class="modal-label">커뮤니티 초대 문구 <span style="font-size:10px;opacity:.6">(오늘의 말씀 창에 보임)</span></label>
+      <textarea id="daily-invite-text-in" maxlength="1000" placeholder="예: 매일 아침 영어로 함께 말씀을 묵상하는 유료 멤버십이에요. 함께해요!" style="min-height:70px"></textarea>
+    </div>
+    <div class="modal-field">
+      <label class="modal-label">참여(결제·신청) 링크 <span style="font-size:10px;opacity:.6">(유료 참여 페이지 URL)</span></label>
+      <input type="text" id="daily-invite-link-in" maxlength="500" placeholder="https://... (결제/신청 링크)">
+    </div>
+    <button class="flash-btn" onclick="adminSaveDaily()">📢 오늘의 말씀 저장</button>
+    <div id="daily-admin-preview" style="font-size:12px;color:var(--green-d);margin-top:10px"></div>
   </div>
   <div class="card">
     <div class="card-title">🐟 이벤트 물고기 지급</div>
@@ -733,9 +795,11 @@ function openNameModal() {
     const parsed = avatarParse(me.avatar || DEFAULT_AVA);
     pickedEmoji = parsed.emoji; pickedColor = parsed.bg;
     if(!COLORS.some(c=>c.bg===pickedColor)) pickedColor = '#c9d6bd';
+    const npw = document.getElementById('newpw-input'); if(npw) npw.value = '';
     renderAvatarPick();
   } else {
     document.getElementById('name-input').value = '';
+    const pw = document.getElementById('pw-input'); if(pw) pw.value = '';
   }
   document.getElementById('name-modal').classList.add('show');
   setTimeout(()=>{ if(!loggedIn){ const el=document.getElementById('name-input'); if(el) el.focus(); } }, 100);
@@ -743,13 +807,14 @@ function openNameModal() {
 async function saveName() {
   // ① 로그인 — 이름만. 승인된 멤버인지 확인하고 입장.
   const name = document.getElementById('name-input').value.trim();
+  const pw = document.getElementById('pw-input').value;
   if(!name) { toast('이름을 입력해 주세요.'); document.getElementById('name-input').focus(); return; }
   const btn = document.getElementById('save-name-btn');
   if(btn){ btn._label = btn.textContent; btn.disabled = true; btn.textContent = '확인 중...'; }
   let j = null, netErr = false;
   for(let attempt = 0; attempt < 3; attempt++) {
     try {
-      const res = await fetch('/api/member?login=' + encodeURIComponent(name));
+      const res = await fetch('/api/member?login=' + encodeURIComponent(name) + '&pw=' + encodeURIComponent(pw));
       if(res.status >= 500 && attempt < 2) { await new Promise(r => setTimeout(r, 1000)); continue; }
       j = await res.json().catch(() => null);
       netErr = false;
@@ -762,8 +827,13 @@ async function saveName() {
   if(btn){ btn.disabled=false; btn.textContent=btn._label; }
   if(netErr || !j) { toast('연결이 잠깐 불안정했어요. 한 번만 다시 눌러 주세요.'); return; }
   if(!j.ok) {
-    toast('🔒 ' + (j.message || '승인되지 않은 이름이에요. 관리자에게 문의하세요.'));
-    const ni = document.getElementById('name-input'); ni.focus(); ni.select();
+    if(j.wrong_pw) {
+      toast('🔒 ' + (j.message || '비밀번호가 올바르지 않아요. (처음이면 0000)'));
+      const pi = document.getElementById('pw-input'); pi.focus(); pi.select();
+    } else {
+      toast('🔒 ' + (j.message || '승인되지 않은 이름이에요. 관리자에게 문의하세요.'));
+      const ni = document.getElementById('name-input'); ni.focus(); ni.select();
+    }
     return;
   }
   // 승인됨 → 입장. 캐릭터·메일은 로그인 후 '내 소개실'에서 설정.
@@ -771,20 +841,27 @@ async function saveName() {
   updateMeBadge();
   document.getElementById('name-modal').classList.remove('show');
   loadDashboard(true);
+  loadDaily();
 }
 async function saveProfile() {
-  // ② 내 소개실 — 캐릭터·메일 저장
+  // ② 내 소개실 — 캐릭터·메일·비밀번호 저장
   if(!me || !me.name) return;
   const email = document.getElementById('email-input').value.trim();
+  const newpw = document.getElementById('newpw-input').value;
   const avatar = `${pickedEmoji}|${pickedColor}`;
   me.avatar = avatar; me.email = email;
   updateMeBadge();
   document.getElementById('name-modal').classList.remove('show');
-  toast('저장했어요 💾');
+  toast(newpw ? '저장했어요 💾 (비밀번호 변경됨)' : '저장했어요 💾');
   try {
     await apiFetch('/api/member', {method:'POST', headers:{'Content-Type':'application/json'},
       body:JSON.stringify({action:'profile', name: me.name, avatar, email})});
+    if(newpw) {
+      await apiFetch('/api/member', {method:'POST', headers:{'Content-Type':'application/json'},
+        body:JSON.stringify({action:'password', new: newpw})});
+    }
   } catch(e) {}
+  document.getElementById('newpw-input').value = '';
   loadDashboard(true);
 }
 function logout() {
@@ -795,6 +872,64 @@ function logout() {
   showTab('study');
   toast('로그아웃했어요 👋');
   openNameModal();   // 다시 로그인 팝업
+}
+
+/* ── 📢 오늘의 말씀 ── */
+let dailyData = null;
+async function loadDaily() {
+  try {
+    const res = await fetch('/api/daily');
+    dailyData = await res.json().catch(()=>null);
+  } catch(e) { dailyData = null; }
+  const banner = document.getElementById('daily-banner');
+  if(banner) {
+    if(dailyData && dailyData.passage) {
+      document.getElementById('daily-banner-text').textContent = dailyData.passage;
+      banner.style.display = 'flex';
+    } else {
+      banner.style.display = 'none';
+    }
+  }
+  // 관리자 설정 폼 채우기 (비어 있을 때만)
+  if(me && me.admin && dailyData) {
+    const pv=document.getElementById('daily-passages'); if(pv && !pv.value) pv.value=(dailyData.passages||[]).join('\n');
+    const st=document.getElementById('daily-start'); if(st && !st.value && dailyData.start) st.value=dailyData.start;
+    const it=document.getElementById('daily-invite-text-in'); if(it && !it.value) it.value=dailyData.text||'';
+    const il=document.getElementById('daily-invite-link-in'); if(il && !il.value) il.value=dailyData.link||'';
+  }
+}
+function openDaily() {
+  if(!dailyData || !dailyData.passage) { toast('아직 오늘의 말씀이 설정되지 않았어요.'); return; }
+  document.getElementById('daily-modal-passage').textContent = dailyData.passage;
+  const inv = document.getElementById('daily-invite');
+  if(dailyData.link || dailyData.text) {
+    document.getElementById('daily-invite-text').textContent = dailyData.text || '';
+    const a = document.getElementById('daily-invite-link');
+    if(dailyData.link){ a.href = dailyData.link; a.style.display='block'; } else { a.style.display='none'; }
+    inv.style.display = 'block';
+  } else { inv.style.display = 'none'; }
+  document.getElementById('daily-modal').classList.add('show');
+}
+function analyzeDaily() {
+  if(!dailyData || !dailyData.passage) return;
+  document.getElementById('daily-modal').classList.remove('show');
+  showTab('study');
+  document.getElementById('passage').value = dailyData.passage;
+  analyze();
+}
+async function adminSaveDaily() {
+  if(!me || !me.admin) { toast('관리자만 설정할 수 있어요.'); return; }
+  const passages = document.getElementById('daily-passages').value;
+  const start = document.getElementById('daily-start').value;
+  const text = document.getElementById('daily-invite-text-in').value.trim();
+  const link = document.getElementById('daily-invite-link-in').value.trim();
+  const res = await apiFetch('/api/daily', {method:'POST', headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({passages, start, text, link})});
+  const out = await res.json().catch(()=>({}));
+  if(!res.ok) { toast(out.message || '저장하지 못했어요.'); return; }
+  toast(`오늘의 말씀 저장! (총 ${out.total||0}개)`);
+  document.getElementById('daily-admin-preview').textContent = out.passage ? `오늘 표시될 말씀: ${out.passage}` : '';
+  await loadDaily();
 }
 
 /* ── 탭 ── */
@@ -837,11 +972,17 @@ async function analyze() {
 let lastTrans = null;
 let lastAnalysis = null;
 function speakTrans(key) {
-  if(!lastTrans || !lastTrans[key] || !('speechSynthesis' in window)) return;
-  const text = lastTrans[key].replace(/<[^>]*>/g, '');
+  if(!lastTrans || !lastTrans[key]) return;
+  speak(lastTrans[key], 'en-US');
+}
+/* onclick 속성용 문자열 이스케이프 */
+function jsq(s){ return String(s==null?'':s).replace(/\\/g,'\\\\').replace(/'/g,"\\'"); }
+/* 텍스트를 해당 언어로 소리 내어 읽기 (영어 en-US / 헬라어 el-GR / 히브리어 he-IL) */
+function speak(text, lang){
+  if(!text || !('speechSynthesis' in window)) return;
   speechSynthesis.cancel();
-  const u = new SpeechSynthesisUtterance(text);
-  u.lang = 'en-US'; u.rate = 0.92;
+  const u = new SpeechSynthesisUtterance(String(text).replace(/<[^>]*>/g,''));
+  u.lang = lang || 'en-US'; u.rate = 0.9;
   speechSynthesis.speak(u);
 }
 function render(data) {
@@ -855,19 +996,24 @@ function render(data) {
   tbody.innerHTML = ['개역개정','새번역','NKJV','NASB'].map(v =>
     trans[v] ? `<tr><td>${v}${(v==='NKJV'||v==='NASB')?`<button class="tts-btn" title="영어로 듣기" onclick="speakTrans('${v}')">🔊</button>`:''}</td><td>${trans[v]}</td></tr>` : ''
   ).join('');
-  document.getElementById('words-body').innerHTML = wordsArr.map((w,i) => {
+  document.getElementById('words-body').innerHTML = '<div class="words-grid">' + wordsArr.map((w,i) => {
     w = w || {};
+    const en = esc(w.english||''), ko = esc(w.korean||'');
+    const title = en ? `${en}${ko?` <span>(${ko})</span>`:''}` : ko;   // '영어 (한국어)'
+    const spk = w.english ? `<button class="tts-btn" title="영어로 듣기" onclick="speak('${jsq(w.english)}','en-US')">🔊</button>` : '';
     return `<div class="word-card">
       <div class="word-num">${i+1} <span class="pos-badge">${esc(w.pos||'')}</span></div>
-      <div class="word-title">${esc(w.english||w.korean||'')}${w.korean?`<span>${esc(w.korean)}</span>`:''}</div>
+      <div class="word-title">${title}${spk}</div>
       <div class="word-row"><span class="wk">의미</span><span class="wv">${esc(w.meaning||'')}</span></div>
       <div class="word-row"><span class="wk">뉘앙스</span><span class="wv">${esc(w.nuance||'')}</span></div>
     </div>`;
-  }).join('');
+  }).join('') + '</div>';
   document.getElementById('originals-body').innerHTML = origArr.map(o => {
     o = o || {};
+    const lang = /^\s*h/i.test(String(o.strong||'')) ? 'he-IL' : 'el-GR';   // H=히브리어, G=헬라어
+    const spk = o.original ? `<button class="tts-btn" title="원어로 듣기" onclick="speak('${jsq(o.original)}','${lang}')">🔊</button>` : '';
     return `<div class="orig-card">
-      <div class="orig-word">${esc(o.original||'')}<span>${esc(o.reading||'')}${o.korean?' · '+esc(o.korean):''}</span></div>
+      <div class="orig-word">${esc(o.original||'')}${spk}<span>${esc(o.reading||'')}${o.korean?' · '+esc(o.korean):''}</span></div>
       <div class="orig-mean">${esc(o.meaning||'')}</div>
       ${strongLinks(o.strong)}
     </div>`;

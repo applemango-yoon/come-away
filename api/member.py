@@ -36,7 +36,7 @@ def member_row(name):
     if not name:
         return None
     q = 'members?name=eq.' + urllib.parse.quote(name, safe='')
-    for sel in ('&select=name,avatar,email', '&select=name,avatar'):
+    for sel in ('&select=name,avatar,email,password', '&select=name,avatar,email', '&select=name,avatar'):
         try:
             rows = sb('GET', q + sel)
             return rows[0] if rows else None
@@ -72,6 +72,13 @@ class handler(BaseHTTPRequestHandler):
                 except Exception:
                     pass
             if row or admin:
+                # 개인 비밀번호 확인 (미설정 시 초기값 0000)
+                pw = (q.get('pw', [''])[0] or '')
+                stored = (row.get('password') if row else None) or '0000'
+                if pw != stored:
+                    self._send_json({'ok': False, 'wrong_pw': True,
+                                     'message': '비밀번호가 올바르지 않아요. (처음이면 0000)'})
+                    return
                 avatar = (row.get('avatar') if row else None) or '🐑|#c9d6bd'
                 email = (row.get('email') if row else None) or ''
                 self._send_json({'ok': True, 'name': login, 'avatar': avatar, 'email': email, 'admin': admin})
@@ -122,6 +129,28 @@ class handler(BaseHTTPRequestHandler):
                 else:  # remove
                     sb('DELETE', 'members?name=eq.' + qname, extra_headers={'Prefer': 'return=minimal'})
                     self._send_json({'ok': True})
+            except Exception as e:
+                self._send_json({'error': str(e)}, 500)
+            return
+
+        # ── 본인 비밀번호 변경 (승인된 멤버만) ──
+        if action == 'password':
+            if not self._member_ok():
+                self._deny()
+                return
+            new = (body.get('new') or '').strip()[:60]
+            if not new:
+                self._send_json({'error': 'empty', 'message': '새 비밀번호를 입력해 주세요.'}, 400)
+                return
+            try:
+                qname = urllib.parse.quote(caller, safe='')
+                if member_row(caller):
+                    sb('PATCH', 'members?name=eq.' + qname, {'password': new},
+                       extra_headers={'Prefer': 'return=minimal'})
+                else:
+                    sb('POST', 'members', {'name': caller, 'password': new},
+                       extra_headers={'Prefer': 'return=minimal'})
+                self._send_json({'ok': True})
             except Exception as e:
                 self._send_json({'error': str(e)}, 500)
             return
