@@ -198,7 +198,16 @@ textarea:focus{border-color:var(--green)}
 .flash-card{background:white;border:3px solid var(--terra);border-radius:18px;min-height:180px;display:flex;flex-direction:column;align-items:center;justify-content:center;cursor:pointer;padding:20px;text-align:center;margin-bottom:14px}
 .flash-word{font-family:'Jua',sans-serif;font-size:26px;color:var(--ink)}
 .flash-hint{font-size:11px;color:#b6a88f;margin-top:10px}
-.flash-back{font-size:14px;color:var(--ink2);line-height:1.8}
+.flash-back{font-size:14px;color:var(--ink2);line-height:1.8;width:100%}
+.flash-answord{font-family:'Jua',sans-serif;font-size:24px;color:var(--ink);margin-bottom:8px}
+.flash-ans{background:#fdf8f1;border:1.5px dashed var(--terra);border-radius:14px;padding:12px 14px;text-align:left;margin:0 auto 12px;max-width:420px}
+.fa-ko{font-family:'Jua',sans-serif;font-size:18px;color:var(--terra-d);margin-bottom:6px;text-align:center}
+.fa-pos{font-size:11px;color:#b6a88f;font-family:inherit}
+.fa-row{display:flex;gap:8px;font-size:13px;line-height:1.7;margin-top:4px}
+.fa-k{flex:0 0 42px;color:#b6a88f;font-size:12px;padding-top:2px}
+.fa-v{flex:1;color:var(--ink2)}
+.flash-noans{font-size:13px;color:#b6a88f;line-height:1.7;margin-bottom:12px}
+.flash-src{font-size:12px;color:#b6a88f;border-top:1px dashed #e6dccb;padding-top:10px;margin-top:2px}
 .flash-nav{display:flex;gap:8px}
 .flash-nav button{flex:1;padding:10px;border:2px solid var(--line);border-radius:12px;background:white;font-size:13px;cursor:pointer;font-family:'Jua',sans-serif;color:var(--ink2)}
 .flash-nav button:hover{border-color:var(--green)}
@@ -670,6 +679,8 @@ textarea:focus{border-color:var(--green)}
 
 <script>
 let words = [];
+let wordMeta = {};      // 이번 분석의 단어 → {ko, meaning, nuance, pos} (저장 시 단어장 사전에 함께 올림)
+let vocabDict = {};     // 내 단어장 사전 (서버 저장) — 플래시카드 뒷면 '원래 뜻'
 let isSaved = false;
 let savedEntry = null;
 let allEntries = [];
@@ -1022,6 +1033,10 @@ function render(data) {
   document.getElementById('result-area').style.display = 'block';
   document.getElementById('result-area').scrollIntoView({behavior:'smooth'});
   words = wordsArr.map(w=>(w&&w.english)||'').filter(Boolean);
+  wordMeta = {};
+  wordsArr.forEach(w => {
+    if(w && w.english) wordMeta[w.english] = {ko:w.korean||'', meaning:w.meaning||'', nuance:w.nuance||'', pos:w.pos||''};
+  });
   renderChips();
 }
 
@@ -1069,6 +1084,21 @@ async function saveEntry() {
   if(saveBtn){ saveBtn.textContent='✅ 저장됨'; saveBtn.disabled=true; }
   document.getElementById('share-btn').style.display='block';
   document.getElementById('share-btn').scrollIntoView({behavior:'smooth'});
+  saveVocabMeta(savedEntry.words, passage);   // 단어 뜻을 내 단어장 사전에 저장 (플래시카드 정답용)
+}
+
+/* 저장한 단어들의 '뜻'을 서버 단어장 사전에 함께 올림 — 나중에 플래시카드에서 정답으로 보여준다 */
+async function saveVocabMeta(list, passage) {
+  try {
+    const payload = {};
+    (list||[]).forEach(w => {
+      const m = wordMeta[w];
+      if(m) { payload[w] = {ko:m.ko, meaning:m.meaning, nuance:m.nuance, pos:m.pos, passage:passage||''}; vocabDict[w] = payload[w]; }
+    });
+    if(!Object.keys(payload).length) return;
+    await apiFetch('/api/announce', {method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({action:'vocab_add', words:payload})});
+  } catch(e) { /* 뜻 저장 실패해도 묵상 기록 자체엔 영향 없음 */ }
 }
 
 function shareKakao() {
@@ -1089,15 +1119,17 @@ function shareKakao() {
 async function loadDashboard(force) {
   if(!me || !me.name) return;   // 로그인 전에는 대시보드를 부르지 않는다 → 첫 화면에서 401 안내가 뜨지 않음
   try {
-    const [entRes, memRes, rxRes, shRes, cmRes, anRes] = await Promise.all([
+    const [entRes, memRes, rxRes, shRes, cmRes, anRes, vcRes] = await Promise.all([
       apiFetch('/api/log?me=' + encodeURIComponent(me && me.name ? me.name : '')), apiFetch('/api/member'), apiFetch('/api/react'),
-      apiFetch('/api/shell'), apiFetch('/api/comment'), apiFetch('/api/announce')]);
+      apiFetch('/api/shell'), apiFetch('/api/comment'), apiFetch('/api/announce'), apiFetch('/api/announce?vocab=1')]);
     const ent = await entRes.json();
     const mem = await memRes.json().catch(()=>[]);
     const rx = await rxRes.json().catch(()=>[]);
     const sh = await shRes.json().catch(()=>null);
     const cm = await cmRes.json().catch(()=>[]);
     const an = await anRes.json().catch(()=>[]);
+    const vc = await vcRes.json().catch(()=>null);
+    if(vc && vc.vocab && typeof vc.vocab === 'object') vocabDict = vc.vocab;
     if(Array.isArray(cm)) comments = cm;
     if(Array.isArray(an)) announcements = an;
     if(Array.isArray(ent)) allEntries = ent;
@@ -1449,10 +1481,19 @@ function renderMy() {
 
 /* ── 내 단어장 + 플래시카드 ── */
 let fcList = [], fcIdx = 0, fcFlipped = false;
+/* 단어의 '원래 뜻' 찾기 — 대소문자·앞뒤 공백 차이도 맞춰준다 */
+function lookupMeaning(word) {
+  if(!word) return null;
+  const w = String(word).trim();
+  if(vocabDict[w]) return vocabDict[w];
+  const low = w.toLowerCase();
+  for(const k in vocabDict) { if(k.trim().toLowerCase() === low) return vocabDict[k]; }
+  return null;
+}
 function myVocab() {
   const seen = new Map();
   myEntries().forEach(e => (e.words||[]).forEach(w => {
-    if(w) seen.set(w, {word: w, passage: e.passage || '', date: e.date});
+    if(w) seen.set(w, {word: w, passage: e.passage || '', date: e.date, meta: lookupMeaning(w)});
   }));
   return [...seen.values()].reverse();   // 최근 단어 먼저 (플래시카드·백업용)
 }
@@ -1477,7 +1518,7 @@ function renderVocab() {
   document.getElementById('vocab-chips').innerHTML = groups.length
     ? groups.map(g=>`<div class="vocab-group">
         <div class="vocab-head">📖 ${esc(g.passage)}<span class="vh-date">${esc(g.date)}</span></div>
-        <div class="vocab-row">${g.words.map(w=>`<span class="vocab-chip">${esc(w)}</span>`).join('')}</div>
+        <div class="vocab-row">${g.words.map(w=>{const m=lookupMeaning(w);return `<span class="vocab-chip"${m&&m.ko?` title="${esc(m.ko)}"`:''}>${esc(w)}${m&&m.ko?` <b style="font-weight:400;color:#b6a88f">· ${esc(m.ko)}</b>`:''}</span>`;}).join('')}</div>
       </div>`).join('')
     : '<span style="font-size:12px;color:#b6a88f">묵상을 기록하면 기억할 단어가 본문별로 여기에 쌓여요.</span>';
   document.getElementById('flash-open').style.display = total >= 3 ? '' : 'none';
@@ -1493,9 +1534,21 @@ function closeFlash() { document.getElementById('flash-modal').classList.remove(
 function renderFlash() {
   const v = fcList[fcIdx];
   document.getElementById('flash-count').textContent = `${fcIdx+1} / ${fcList.length}`;
+  const m = v.meta || lookupMeaning(v.word);
+  const answer = m
+    ? `<div class="flash-ans">
+         <div class="fa-ko">${esc(m.ko||'')}${m.pos?` <span class="fa-pos">${esc(m.pos)}</span>`:''}</div>
+         ${m.meaning?`<div class="fa-row"><span class="fa-k">뜻</span><span class="fa-v">${esc(m.meaning)}</span></div>`:''}
+         ${m.nuance?`<div class="fa-row"><span class="fa-k">뉘앙스</span><span class="fa-v">${esc(m.nuance)}</span></div>`:''}
+       </div>`
+    : `<div class="flash-noans">아직 저장된 뜻이 없어요.<br>이 단어가 있는 본문을 한 번 더 분석하고 기록하면 뜻이 함께 저장돼요 🙂</div>`;
   document.getElementById('flash-card').innerHTML = fcFlipped
-    ? `<div class="flash-back">📖 <b>${esc(v.passage||'구절 없음')}</b><br>${esc(v.date)}에 만난 단어예요.<br><br><span style="font-family:'Jua';font-size:20px;color:var(--terra-d)">${esc(v.word)}</span><br>이 단어로 어떤 묵상을 했었는지 떠올려보세요 🙂</div>`
-    : `<div class="flash-word">${esc(v.word)}</div><div class="flash-hint">카드를 눌러 어느 본문의 단어인지 확인</div>`;
+    ? `<div class="flash-back">
+         <div class="flash-answord">${esc(v.word)}<button class="tts-btn" title="영어로 듣기" onclick="event.stopPropagation();speak('${jsq(v.word)}','en-US')">🔊</button></div>
+         ${answer}
+         <div class="flash-src">📖 <b>${esc(v.passage||'구절 없음')}</b> · ${esc(v.date||'')}에 만난 단어</div>
+       </div>`
+    : `<div class="flash-word">${esc(v.word)}</div><div class="flash-hint">카드를 눌러 뜻과 본문을 확인</div>`;
 }
 function flipFlash() { fcFlipped = !fcFlipped; renderFlash(); }
 function moveFlash(dir) {

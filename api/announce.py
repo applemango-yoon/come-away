@@ -73,11 +73,44 @@ def compute_today(plan):
     return passages[idx], idx, len(passages)
 
 
+# ── 내 단어장 뜻 사전 (vocab) : 함수 수 제한(12개) 때문에 이 파일에 함께 둠 ──
+def vocab_key(name):
+    return 'vocab:' + (name or '').strip()[:60]
+
+
+def get_vocab(name):
+    try:
+        rows = sb('GET', 'settings?key=eq.' + urllib.parse.quote(vocab_key(name), safe='') + '&select=value')
+        if rows:
+            v = rows[0].get('value')
+            return v if isinstance(v, dict) else {}
+    except Exception:
+        pass
+    return {}
+
+
+def save_vocab(name, merged):
+    key = vocab_key(name)
+    existing = sb('GET', 'settings?key=eq.' + urllib.parse.quote(key, safe='') + '&select=key')
+    if existing:
+        sb('PATCH', 'settings?key=eq.' + urllib.parse.quote(key, safe=''), {'value': merged})
+    else:
+        sb('POST', 'settings', {'key': key, 'value': merged})
+
+
 class handler(BaseHTTPRequestHandler):
     def log_message(self, *a): pass
 
     def do_GET(self):
         q = parse_qs(urlparse(self.path).query)
+        # 내 단어장 뜻 사전 조회 (본인만)
+        if q.get('vocab'):
+            caller = urllib.parse.unquote(self.headers.get('X-Member') or '').strip()
+            if not member_ok(self):
+                self._send_json({'ok': True, 'vocab': {}})
+                return
+            self._send_json({'ok': True, 'vocab': get_vocab(caller)})
+            return
         # 오늘의 말씀 조회 (공개 — 인증 불필요)
         if q.get('daily'):
             plan = get_plan()
@@ -105,6 +138,38 @@ class handler(BaseHTTPRequestHandler):
         except Exception:
             body = {}
         action = body.get('action', 'add')
+
+        # 내 단어장 뜻 저장 (본인만) — 플래시카드 뒷면에 '원래 뜻'을 보여주기 위함
+        if action == 'vocab_add':
+            caller = urllib.parse.unquote(self.headers.get('X-Member') or '').strip()
+            if not member_ok(self):
+                self._send_json({'error': 'bad_code'}, 401)
+                return
+            try:
+                incoming = body.get('words')
+                if not isinstance(incoming, dict):
+                    incoming = {}
+                merged = get_vocab(caller)
+                for k, v in list(incoming.items())[:60]:
+                    if not isinstance(k, str) or not k.strip():
+                        continue
+                    if not isinstance(v, dict):
+                        continue
+                    merged[k.strip()[:60]] = {
+                        'ko': str(v.get('ko') or '')[:80],
+                        'meaning': str(v.get('meaning') or '')[:400],
+                        'nuance': str(v.get('nuance') or '')[:400],
+                        'pos': str(v.get('pos') or '')[:20],
+                        'passage': str(v.get('passage') or '')[:80],
+                    }
+                # 너무 커지지 않도록 최근 600개만 유지
+                if len(merged) > 600:
+                    merged = dict(list(merged.items())[-600:])
+                save_vocab(caller, merged)
+                self._send_json({'ok': True, 'count': len(merged)})
+            except Exception as e:
+                self._send_json({'error': str(e)}, 500)
+            return
 
         # 오늘의 말씀 설정 (관리자 전용)
         if action == 'daily_set':
