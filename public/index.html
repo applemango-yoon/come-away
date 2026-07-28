@@ -58,8 +58,10 @@ body{font-family:'Gowun Dodum',sans-serif;color:var(--ink);min-height:100vh;back
 .tab{flex:1;padding:12px 4px;text-align:center;font-family:'Jua',sans-serif;font-size:14px;color:rgba(255,255,255,.65);cursor:pointer;border-bottom:4px solid transparent;letter-spacing:1px;transition:color .15s}
 .tab.active{color:#fff;border-bottom-color:var(--terra-l)}
 .tab:hover:not(.active){color:rgba(255,255,255,.9)}
-.page{display:none;padding:22px 18px;max-width:620px;margin:0 auto}
+.page{display:none;padding:22px 18px;max-width:1100px;margin:0 auto}
 .page.active{display:block}
+@media(min-width:900px){.page{padding:26px 32px}}
+@media(min-width:1400px){.page{max-width:1280px}}
 
 /* ── 카드 ── */
 .card{background:var(--cream);border:2px solid var(--line-l);border-radius:16px;box-shadow:0 3px 0 rgba(140,110,80,.08);padding:20px;margin-bottom:16px}
@@ -91,7 +93,7 @@ textarea:focus{border-color:var(--green)}
 .word-row{display:flex;gap:10px;margin-bottom:6px;font-size:14.5px;align-items:flex-start}
 .wk{font-family:'Jua',sans-serif;color:var(--green-d);font-size:11px;min-width:64px;flex-shrink:0;padding-top:2px}
 .wv{color:var(--ink2);line-height:1.75}
-.words-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+.words-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:10px}
 .words-grid .word-card{margin-bottom:0}
 .tts-btn{background:none;border:none;cursor:pointer;font-size:13px;padding:0 3px;vertical-align:middle;opacity:.65;line-height:1}
 .tts-btn:hover{opacity:1}
@@ -200,7 +202,7 @@ textarea:focus{border-color:var(--green)}
 .flash-hint{font-size:11px;color:#b6a88f;margin-top:10px}
 .flash-back{font-size:14px;color:var(--ink2);line-height:1.8;width:100%}
 .flash-answord{font-family:'Jua',sans-serif;font-size:24px;color:var(--ink);margin-bottom:8px}
-.flash-ans{background:#fdf8f1;border:1.5px dashed var(--terra);border-radius:14px;padding:12px 14px;text-align:left;margin:0 auto 12px;max-width:420px}
+.flash-ans{background:#fdf8f1;border:1.5px dashed var(--terra);border-radius:14px;padding:12px 14px;text-align:left;margin:0 auto 12px;max-width:600px}
 .fa-ko{font-family:'Jua',sans-serif;font-size:18px;color:var(--terra-d);margin-bottom:6px;text-align:center}
 .fa-pos{font-size:11px;color:#b6a88f;font-family:inherit}
 .fa-row{display:flex;gap:8px;font-size:13px;line-height:1.7;margin-top:4px}
@@ -246,7 +248,7 @@ textarea:focus{border-color:var(--green)}
 /* ── 모달 ── */
 .modal-backdrop{display:none;position:fixed;inset:0;background:rgba(60,48,36,.45);z-index:100;align-items:center;justify-content:center;padding:20px}
 .modal-backdrop.show{display:flex}
-.modal{background:var(--cream);border:2px solid var(--line);border-radius:18px;max-width:520px;width:100%;padding:24px;box-shadow:0 10px 32px rgba(60,48,36,.25);max-height:88vh;overflow-y:auto}
+.modal{background:var(--cream);border:2px solid var(--line);border-radius:18px;max-width:720px;width:100%;padding:24px;box-shadow:0 10px 32px rgba(60,48,36,.25);max-height:88vh;overflow-y:auto}
 .modal-title{font-family:'Jua',sans-serif;font-size:17px;color:var(--terra-d);margin-bottom:14px;padding-bottom:10px;border-bottom:2px dashed var(--line-l)}
 .modal-field{margin-bottom:14px}
 .modal-label{font-family:'Jua',sans-serif;font-size:12px;color:var(--green-d);display:block;margin-bottom:6px}
