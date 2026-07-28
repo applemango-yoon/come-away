@@ -98,11 +98,41 @@ def save_vocab(name, merged):
         sb('POST', 'settings', {'key': key, 'value': merged})
 
 
+# ── 모임 신청서 접수 (apply) : 함수 수 제한(12개) 때문에 이 파일에 함께 둠 ──
+def get_applications():
+    try:
+        rows = sb('GET', 'settings?key=eq.applications&select=value')
+        if rows:
+            v = rows[0].get('value')
+            if isinstance(v, dict) and isinstance(v.get('list'), list):
+                return v['list']
+    except Exception:
+        pass
+    return []
+
+
+def save_applications(items):
+    value = {'list': items[-300:]}   # 너무 커지지 않도록 최근 300건만
+    existing = sb('GET', 'settings?key=eq.applications&select=key')
+    if existing:
+        sb('PATCH', 'settings?key=eq.applications', {'value': value})
+    else:
+        sb('POST', 'settings', {'key': 'applications', 'value': value})
+
+
 class handler(BaseHTTPRequestHandler):
     def log_message(self, *a): pass
 
     def do_GET(self):
         q = parse_qs(urlparse(self.path).query)
+        # 신청서 목록 (관리자 전용)
+        if q.get('apps'):
+            caller = urllib.parse.unquote(self.headers.get('X-Member') or '').strip()
+            if not is_admin_name(caller):
+                self._send_json({'error': 'forbidden'}, 403)
+                return
+            self._send_json({'ok': True, 'applications': get_applications()})
+            return
         # 내 단어장 뜻 사전 조회 (본인만)
         if q.get('vocab'):
             caller = urllib.parse.unquote(self.headers.get('X-Member') or '').strip()
@@ -138,6 +168,37 @@ class handler(BaseHTTPRequestHandler):
         except Exception:
             body = {}
         action = body.get('action', 'add')
+
+        # 모임 신청서 접수 (누구나 — 아직 멤버가 아닌 분이 신청하는 것이므로 인증 없음)
+        if action == 'apply':
+            try:
+                def f(k, n=200):
+                    return str(body.get(k) or '').strip()[:n]
+                name = f('name', 40)
+                contact = f('contact', 80)
+                if not name or not contact:
+                    self._send_json({'error': 'bad_request', 'message': '이름과 연락처를 입력해 주세요.'}, 400)
+                    return
+                item = {
+                    'name': name,
+                    'contact': contact,
+                    'email': f('email', 80),
+                    'slot': f('slot', 40),
+                    'mode': f('mode', 30),
+                    'level': f('level', 30),
+                    'plan': f('plan', 40),
+                    'payer': f('payer', 40),
+                    'motive': f('motive', 800),
+                    'at': (datetime.datetime.utcnow() + datetime.timedelta(hours=9)).strftime('%Y-%m-%d %H:%M'),
+                    'status': 'new',
+                }
+                items = get_applications()
+                items.append(item)
+                save_applications(items)
+                self._send_json({'ok': True})
+            except Exception as e:
+                self._send_json({'error': str(e)}, 500)
+            return
 
         # 내 단어장 뜻 저장 (본인만) — 플래시카드 뒷면에 '원래 뜻'을 보여주기 위함
         if action == 'vocab_add':
