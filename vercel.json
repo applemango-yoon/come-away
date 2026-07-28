@@ -68,6 +68,14 @@
       "dest": "/public/join.html"
     },
     {
+      "src": "/guide",
+      "dest": "/public/guide.html"
+    },
+    {
+      "src": "/guide.html",
+      "dest": "/public/guide.html"
+    },
+    {
       "src": "/(icon-180\\.png|icon-192\\.png|icon-512\\.png|manifest\\.json|sw\\.js|robots\\.txt|sitemap\\.xml)",
       "dest": "/public/$1"
     },

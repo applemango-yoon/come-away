@@ -1,0 +1,326 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>MOM Bakery 사용설명서 — 이 홈페이지 쓰는 법</title>
+<meta name="description" content="MOM Bakery(Miracles on Miracles in Christ) 홈페이지 사용설명서 — 묵상 기록, 오병이어 달란트, 광장, 단어장·플래시카드, 제빵실(관리자) 사용법">
+<meta property="og:title" content="MOM Bakery 사용설명서">
+<meta property="og:description" content="묵상부터 오병이어 달란트까지, 처음 오신 분도 5분이면 알 수 있어요 🍞">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Jua&family=Gowun+Dodum&display=swap" rel="stylesheet">
+<style>
+:root{
+  --green:#8aa07a; --green-d:#5f7550; --green-l:#eaf0e4;
+  --terra:#cd8a62; --terra-d:#a5623c; --terra-l:#f6e3d6;
+  --parch:#f6f1e7; --cream:#fffdf6; --ink:#4c4237; --ink2:#7b6c5b;
+  --line:#e3d8c6; --line-l:#efe7d8;
+  --honey:#e8b04b; --honey-l:#f9ecc9; --honey-d:#b07c1e;
+}
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'Gowun Dodum',sans-serif;background:var(--parch);color:var(--ink);line-height:1.85;font-size:16px;
+  background-image:radial-gradient(circle at 12% 8%,rgba(232,176,75,.07) 0,transparent 42%),radial-gradient(circle at 88% 92%,rgba(138,160,122,.08) 0,transparent 45%)}
+.wrap{max-width:760px;margin:0 auto;padding:0 18px 60px}
+
+/* 헤더 */
+.top{text-align:center;padding:34px 18px 26px}
+.sign{display:inline-block;background:var(--cream);border:2px solid var(--line);border-radius:16px;padding:10px 26px;box-shadow:0 3px 0 rgba(140,110,80,.15)}
+.sign h1{font-family:'Jua',sans-serif;font-size:29px;font-weight:400;color:var(--terra-d);letter-spacing:1px;line-height:1.15}
+.sign .en{font-family:'Jua',sans-serif;font-size:13px;letter-spacing:1px;color:#b08a63;margin-top:3px}
+.top .lead{font-size:15px;color:var(--ink2);margin-top:14px;line-height:1.7}
+.top .home{display:inline-block;margin-top:14px;background:var(--green);color:#fff;font-family:'Jua',sans-serif;font-size:14px;
+  padding:8px 20px;border-radius:999px;text-decoration:none;box-shadow:0 3px 0 var(--green-d)}
+
+/* 목차 */
+.toc{background:var(--cream);border:2px solid var(--line);border-radius:16px;padding:18px 20px;margin-bottom:26px}
+.toc .t{font-family:'Jua',sans-serif;font-size:17px;color:var(--green-d);margin-bottom:10px}
+.toc ol{list-style:none;counter-reset:t}
+.toc li{counter-increment:t;padding:4px 0;font-size:15px;border-bottom:1px dashed var(--line-l)}
+.toc li:last-child{border-bottom:0}
+.toc li:before{content:counter(t) ".";color:var(--honey-d);font-weight:700;margin-right:8px}
+.toc a{color:var(--ink);text-decoration:none}
+.toc a:hover{color:var(--terra-d)}
+
+/* 섹션 */
+section{background:var(--cream);border:2px solid var(--line);border-radius:18px;padding:22px 22px 24px;margin-bottom:22px;
+  box-shadow:0 3px 0 rgba(140,110,80,.08)}
+section > h2{font-family:'Jua',sans-serif;font-size:21px;color:var(--terra-d);font-weight:400;
+  padding-bottom:11px;margin-bottom:15px;border-bottom:2px dashed var(--line-l);line-height:1.35}
+h3{font-family:'Jua',sans-serif;font-size:16.5px;color:var(--green-d);font-weight:400;margin:20px 0 8px}
+h3:first-of-type{margin-top:4px}
+p{margin-bottom:11px}
+b{color:var(--terra-d)}
+.small{font-size:14px;color:var(--ink2)}
+
+/* 단계 목록 */
+.steps{counter-reset:s;list-style:none;margin:6px 0 4px}
+.steps li{counter-increment:s;position:relative;padding:9px 0 9px 40px;border-bottom:1px dashed var(--line-l);font-size:15.5px}
+.steps li:last-child{border-bottom:0}
+.steps li:before{content:counter(s);position:absolute;left:0;top:10px;width:26px;height:26px;border-radius:50%;
+  background:var(--honey-l);border:2px solid var(--honey);color:var(--honey-d);font-family:'Jua',sans-serif;
+  font-size:13px;display:flex;align-items:center;justify-content:center}
+
+/* 항목 목록 */
+.items{list-style:none}
+.items li{padding:8px 0;border-bottom:1px dashed var(--line-l);font-size:15.5px}
+.items li:last-child{border-bottom:0}
+.items li .k{font-family:'Jua',sans-serif;color:var(--green-d);margin-right:6px}
+
+/* 팁 박스 */
+.tip{background:var(--green-l);border:2px solid var(--green);border-radius:14px;padding:13px 16px;margin:14px 0 4px;font-size:14.5px;line-height:1.75}
+.tip b{color:var(--green-d)}
+.warn{background:#fdf3e6;border:2px solid var(--honey);border-radius:14px;padding:13px 16px;margin:14px 0 4px;font-size:14.5px;line-height:1.75}
+.warn b{color:var(--honey-d)}
+
+/* 오병이어 규칙 카드 */
+.rule-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin:12px 0 4px}
+@media(max-width:520px){.rule-grid{grid-template-columns:1fr}}
+.rule{background:var(--parch);border:2px solid var(--line);border-radius:14px;padding:14px 15px}
+.rule .em{font-size:24px;line-height:1.2}
+.rule .rt{font-family:'Jua',sans-serif;font-size:15.5px;color:var(--terra-d);margin:5px 0 4px}
+.rule .rd{font-size:14px;color:var(--ink2);line-height:1.7}
+
+/* FAQ */
+details{border-bottom:1px dashed var(--line-l);padding:11px 0}
+details:last-of-type{border-bottom:0}
+summary{cursor:pointer;font-family:'Jua',sans-serif;font-size:15.5px;color:var(--green-d);list-style:none}
+summary::-webkit-details-marker{display:none}
+summary:before{content:"Q. ";color:var(--honey-d)}
+details p{margin:9px 0 2px;font-size:15px;color:var(--ink2);padding-left:2px}
+
+.admin-badge{display:inline-block;background:var(--terra-l);border:2px solid var(--terra);color:var(--terra-d);
+  font-size:12px;font-family:'Jua',sans-serif;padding:2px 10px;border-radius:999px;vertical-align:middle;margin-left:6px}
+
+.foot{text-align:center;font-size:14px;color:#a2937f;padding:10px 0 0;line-height:1.9}
+.foot a{color:var(--terra-d);font-weight:700;text-decoration:none;border-bottom:1px solid var(--terra-l)}
+</style>
+</head>
+<body>
+
+<div class="top">
+  <div class="sign">
+    <h1>📘 사용설명서</h1>
+    <div class="en">MOM Bakery · Miracles on Miracles in Christ</div>
+  </div>
+  <p class="lead">처음 오셨나요? 이 문서 하나면 충분해요.<br>빵 굽는 순서대로, 천천히 따라와 주세요 🍞</p>
+  <a class="home" href="/">← 홈페이지로 돌아가기</a>
+</div>
+
+<div class="wrap">
+
+  <div class="toc">
+    <div class="t">🗂️ 목차</div>
+    <ol>
+      <li><a href="#s1">이 홈페이지는 어떤 곳인가요</a></li>
+      <li><a href="#s2">들어가기 (로그인·내 소개실)</a></li>
+      <li><a href="#s3">☀️ 묵상 — 본문 분석과 기록</a></li>
+      <li><a href="#s4">🧺 오병이어 사용법 (달란트)</a></li>
+      <li><a href="#s5">🧺 광장 — 함께 보는 곳</a></li>
+      <li><a href="#s6">🌱 내 기록 — 단어장·플래시카드·백업</a></li>
+      <li><a href="#s7">🧑‍🍳 제빵실 (관리자 전용)</a></li>
+      <li><a href="#s8">자주 묻는 질문</a></li>
+    </ol>
+  </div>
+
+  <!-- 1 -->
+  <section id="s1">
+    <h2>1. 이 홈페이지는 어떤 곳인가요</h2>
+    <p>MOM Bakery는 <b>매일 아침 말씀 한 조각을 영어로 씹어 먹고, 그 부스러기를 서로 나누는 작은 빵집</b>이에요. 혼자 읽으면 흘러가 버리는 말씀을, 기록하고 나누면서 손에 남기려고 만들었어요.</p>
+    <p>크게 네 개의 방이 있어요. 화면 위쪽 탭으로 오가면 돼요.</p>
+    <ul class="items">
+      <li><span class="k">☀️ 묵상</span> 오늘 본문을 넣고 분석해서, 내 묵상을 기록하는 방</li>
+      <li><span class="k">🧺 광장</span> 멤버들의 묵상을 함께 보고, 반응·댓글·오병이어를 나누는 방</li>
+      <li><span class="k">🌱 내 기록</span> 내 걸음(통계)·단어장·달력·백업이 모여 있는 방</li>
+      <li><span class="k">🧑‍🍳 제빵실 <span class="admin-badge">관리자만</span></span> 오늘의 말씀 설정, 멤버 승인, 이벤트 운영</li>
+    </ul>
+    <div class="tip">💡 스마트폰에서는 브라우저 메뉴의 <b>‘홈 화면에 추가’</b>를 누르면 앱처럼 아이콘으로 열려요. 매일 들어오기 훨씬 편해요.</div>
+  </section>
+
+  <!-- 2 -->
+  <section id="s2">
+    <h2>2. 들어가기 — 로그인과 내 소개실</h2>
+    <h3>처음 들어올 때</h3>
+    <ol class="steps">
+      <li>오른쪽 위 <b>🚪 로그인</b> 버튼을 눌러요.</li>
+      <li>관리자가 등록해 준 <b>이름</b>을 그대로 입력해요. (등록 안 된 이름은 들어올 수 없어요)</li>
+      <li>비밀번호는 <b>처음엔 0000</b>이에요. 들어온 뒤 바꿔 주세요.</li>
+      <li>내 캐릭터(색·모양)를 고르면 광장에서 내 얼굴이 돼요.</li>
+    </ol>
+    <h3>내 소개실 (프로필)</h3>
+    <p>로그인 후 오른쪽 위의 <b>내 이름 배지</b>를 누르면 열려요. 여기서 캐릭터를 바꾸고, <b>비밀번호를 변경</b>하고, <b>주간 소식 메일</b>을 받을 이메일을 넣을 수 있어요. 메일은 선택이에요.</p>
+    <div class="warn">⚠️ 이름이 등록되어 있지 않으면 “승인되지 않은 이름이에요”라고 나와요. 그럴 땐 관리자(망고)에게 이름을 알려 주세요.</div>
+  </section>
+
+  <!-- 3 -->
+  <section id="s3">
+    <h2>3. ☀️ 묵상 — 본문 분석과 기록</h2>
+    <p>이 방이 이 홈페이지의 심장이에요. <b>분석 → 묵상 → 저장</b> 세 걸음이면 끝나요.</p>
+
+    <h3>① 본문 넣고 분석하기</h3>
+    <ol class="steps">
+      <li><b>📖 오늘의 본문</b> 칸에 구절을 적어요. (예: <i>요한복음 3:16</i>, <i>시편 23:1-3</i>)</li>
+      <li><b>분석하기</b>를 눌러요. 잠깐 기다리면 결과 카드 네 개가 펼쳐져요.</li>
+      <li>맨 위 <b>📢 오늘의 말씀</b> 띠를 누르면, 관리자가 정해 둔 오늘 본문을 <b>바로 분석</b>할 수도 있어요.</li>
+    </ol>
+
+    <h3>② 분석 결과 읽는 법</h3>
+    <ul class="items">
+      <li><span class="k">📚 번역본 비교</span> 여러 영어 번역본을 나란히 보여줘요. 번역끼리 <b>다르게 표현한 부분에만 색이 칠해져요</b> — 그 색깔이 바로 “여기 뉘앙스가 갈린다”는 표시예요. 옆의 스피커를 누르면 영어 발음을 들려줘요.</li>
+      <li><span class="k">🔍 핵심 단어</span> 본문에서 꼭 알아야 할 영어 단어와 뜻·뉘앙스예요.</li>
+      <li><span class="k">📜 원어 포인트 3</span> 히브리어·헬라어에서 온 결정적인 세 가지 포인트예요. 스트롱 번호는 눌러서 사전으로 갈 수 있어요.</li>
+      <li><span class="k">🏺 배경</span> 이 본문이 쓰인 시대와 상황 설명이에요.</li>
+    </ul>
+    <div class="tip">⚡ 다른 멤버가 이미 분석한 본문이면 “바로 불러왔어요” 표시와 함께 즉시 떠요. 기다릴 필요 없어요.<br>📋 <b>이 분석을 노션에 복사</b>를 누르면 분석 전체가 마크다운으로 복사돼요.</div>
+
+    <h3>③ 내 묵상 기록하기</h3>
+    <ol class="steps">
+      <li><b>묵상 내용</b> — 오늘 마음에 콕 박힌 한 줄이면 충분해요. (140자)</li>
+      <li><b>액션 플랜</b> — 딱 하나, 작고 소소하게 해볼 것 하나.</li>
+      <li><b>기억할 단어</b> — 단어를 넣고 ‘추가’를 누르면 칩이 붙어요. 이 단어들이 <b>내 단어장</b>으로 쌓여요.</li>
+      <li><b>광장에 공개하기</b> 체크 — 끄면 나만 볼 수 있어요.</li>
+      <li><b>기록 저장</b>을 누르면 끝! 저장 후에는 카카오톡 공유 버튼도 생겨요.</li>
+    </ol>
+    <div class="tip">🖼️ 저장한 기록은 광장·내 기록에서 <b>카드</b> 버튼으로 예쁜 이미지 카드를 만들어 저장할 수 있어요. <b>편집</b>·<b>삭제</b>는 내가 쓴 기록에만 보여요.</div>
+  </section>
+
+  <!-- 4 -->
+  <section id="s4">
+    <h2>4. 🧺 오병이어 사용법 (달란트)</h2>
+    <p>오병이어는 <b>서로를 축복하는 방식</b>이에요. 커피나 돈이 아니라, “오늘 네 묵상이 참 좋았어”라는 마음을 빵으로 건네는 거예요. 광장 탭의 <b>🧺 오병이어</b> 버튼을 누르면 창고가 열려요.</p>
+
+    <div class="rule-grid">
+      <div class="rule">
+        <div class="em">🍞</div>
+        <div class="rt">오늘의 빵</div>
+        <div class="rd">매일 아침 <b>한 개</b>가 나와요. 오늘 안 나누면 <b>내일 사라져요.</b> 하루에 한 명에게만 건넬 수 있어요.</div>
+      </div>
+      <div class="rule">
+        <div class="em">🐟</div>
+        <div class="rt">물고기</div>
+        <div class="rd">관리자가 이벤트·챌린지 달성자에게 주는 특별 달란트예요. <b>물고기 1마리 = 빵 2개</b> 값이에요.</div>
+      </div>
+      <div class="rule">
+        <div class="em">🧺</div>
+        <div class="rt">달란트</div>
+        <div class="rd">받은 빵과 물고기가 모여 <b>달란트</b>가 돼요. 창고 아래에서 내 잔액을 볼 수 있어요.</div>
+      </div>
+      <div class="rule">
+        <div class="em">🎁</div>
+        <div class="rt">공유회 신청</div>
+        <div class="rd">모은 달란트로 <b>내가 열고 싶은 공유회를 신청</b>해요. 그게 달란트를 쓰는 유일한 곳이에요.</div>
+      </div>
+    </div>
+
+    <h3>빵 나누는 순서</h3>
+    <ol class="steps">
+      <li>광장 탭에서 <b>🧺 오병이어</b>를 눌러요.</li>
+      <li><b>무엇을 나눌까요?</b> — 🍞 오늘의 빵을 골라요. (🐟 물고기는 관리자만 줄 수 있어서 잠겨 있어요)</li>
+      <li><b>누구에게 보낼까요?</b> — 멤버 카드가 쭉 뜨고, 각 카드에 <b>그 사람의 오늘 묵상 한 줄</b>이 보여요. 읽어 보고 마음이 가는 분을 눌러요.</li>
+      <li><b>한마디</b>를 남겨요. (선택이지만, 이게 제일 따뜻한 부분이에요)</li>
+      <li><b>🍞 빵 나누기</b>를 누르면 끝. 이미 오늘 나눴다면 버튼이 “오늘의 빵은 이미 나눴어요”로 바뀌어요.</li>
+    </ol>
+
+    <h3>모은 달란트로 공유회 신청하기</h3>
+    <ol class="steps">
+      <li>창고 맨 아래 <b>내 달란트</b> 줄에서 잔액을 확인해요. (예: 🐟1 🍞3 → 달란트 5)</li>
+      <li>왼쪽 칸에 <b>쓸 달란트 수</b>를 적어요.</li>
+      <li>오른쪽 칸에 <b>어떤 공유회인지</b> 적어요. (예: <i>요한복음 함께 읽기</i>)</li>
+      <li><b>공유회 신청</b>을 누르면 달란트가 차감되고, 광장 피드에 신청 소식이 올라가요.</li>
+    </ol>
+    <div class="warn">⚠️ 자기 자신에게는 빵을 보낼 수 없어요. 그리고 잔액보다 많은 달란트는 쓸 수 없어요.</div>
+  </section>
+
+  <!-- 5 -->
+  <section id="s5">
+    <h2>5. 🧺 광장 — 함께 보는 곳</h2>
+    <p>멤버들이 오늘 무엇을 먹었는지 한눈에 보이는 방이에요. 위에서부터 이런 것들이 있어요.</p>
+    <ul class="items">
+      <li><span class="k">✨ 오늘의 스페셜</span> 관리자가 올린 공지·이벤트예요. 챌린지 소식이 여기 걸려요.</li>
+      <li><span class="k">🏘️ 오늘의 광장</span> 오늘 묵상을 마친 사람에게 불이 들어와요. 아래 <b>최근 7일</b> 표에서 각자의 일주일 흐름과 <b>연속 일수</b>를 볼 수 있어요.</li>
+      <li><span class="k">🧺 오병이어 피드</span> 누가 누구에게 빵을 건넸는지, 어떤 공유회가 열렸는지 흐르는 곳이에요.</li>
+      <li><span class="k">🔍 검색</span> 구절·내용·단어·이름 아무거나 넣으면 걸러져요.</li>
+      <li><span class="k">👤 이름 필터</span> 검색창 아래 이름을 누르면 그 사람의 기록만 모아 봐요.</li>
+      <li><span class="k">💛 반응 · 💬 댓글</span> 각 묵상 카드에서 이모지로 반응하고 댓글을 남길 수 있어요.</li>
+    </ul>
+    <div class="tip">🍞 아직 오늘의 빵을 안 나눴다면 광장 맨 위에 “오늘의 빵이 아직 따끈해요” 알림이 떠요. 그게 보이면 한 명 골라 건네 주세요.</div>
+  </section>
+
+  <!-- 6 -->
+  <section id="s6">
+    <h2>6. 🌱 내 기록 — 단어장·플래시카드·백업</h2>
+    <h3>나의 걸음</h3>
+    <p>내가 쌓은 묵상 수, 연속 일수 같은 숫자가 나와요. <b>🔔 아침 알림 켜기</b>를 누르면 매일 아침 묵상 알림을 받을 수 있어요. (브라우저가 지원할 때만 보여요)</p>
+
+    <h3>📇 내 단어장 · 🃏 플래시카드</h3>
+    <p>묵상할 때 <b>기억할 단어</b>로 넣은 단어들이 자동으로 여기 모여요. 단어가 쌓이면 <b>🃏 플래시카드 복습</b> 버튼이 생겨요.</p>
+    <ul class="items">
+      <li><span class="k">카드 누르기</span> 앞면(영어)에서 누르면 뒷면(뜻·뉘앙스)이 나와요.</li>
+      <li><span class="k">‹ 이전 / 다음 ›</span> 카드를 넘겨요.</li>
+      <li><span class="k">🔀 섞기</span> 순서를 섞어서 진짜 외웠는지 확인해요.</li>
+    </ul>
+
+    <h3>🗓️ 월별 기록</h3>
+    <p>달력에서 묵상한 날에 표시가 붙어요. 날짜를 누르면 그날 쓴 묵상이 바로 떠요. ‹ › 로 달을 넘겨요.</p>
+
+    <h3>내보내기 · 백업</h3>
+    <ul class="items">
+      <li><span class="k">📋 노션으로 전체 복사</span> 내 묵상 전체가 마크다운으로 복사돼요. 노션에 그대로 붙여넣으면 정리 끝.</li>
+      <li><span class="k">⬇ 내 기록 백업 (JSON)</span> 내 기록 파일을 통째로 내려받아 보관해요.</li>
+      <li><span class="k">⬇ 전체 백업 <span class="admin-badge">관리자만</span></span> 커뮤니티 전체 데이터를 내려받아요.</li>
+    </ul>
+  </section>
+
+  <!-- 7 -->
+  <section id="s7">
+    <h2>7. 🧑‍🍳 제빵실 <span class="admin-badge">관리자 전용</span></h2>
+    <p>관리자 이름으로 로그인하면 탭이 하나 더 생겨요. 이 방이 운영실이에요.</p>
+    <ul class="items">
+      <li><span class="k">📊 한눈에 보기</span> 오늘 몇 명이 묵상했는지 등 전체 현황 요약.</li>
+      <li><span class="k">📢 오늘의 말씀 설정</span> 본문을 <b>한 줄에 하나씩</b> 순서대로 적고 시작일을 정하면, 그날부터 <b>하루에 하나씩</b> 자동으로 올라가요. 다 돌면 처음부터 반복돼요. 초대 문구와 참여(신청) 링크도 여기서 넣어요.</li>
+      <li><span class="k">🐟 이벤트 물고기 지급</span> 멤버를 골라(전체 선택 / 오늘 묵상한 사람 버튼도 있어요) 물고기를 한 번에 지급해요. 이벤트 이름을 적으면 피드에 남아요.</li>
+      <li><span class="k">✨ 오늘의 스페셜</span> 공지·이벤트를 올리면 광장 맨 위에 걸려요. 아래에서 지울 수도 있어요.</li>
+      <li><span class="k">👥 멤버 관리 (승인)</span> 여기서 <b>이름을 추가해야 그 사람이 입장</b>할 수 있어요. 새 멤버가 오면 제일 먼저 여기에 이름을 넣어 주세요.</li>
+      <li><span class="k">🏆 멤버 성취 트래킹</span> 멤버별 묵상 현황을 표로 봐요. 누가 힘든 주간을 보내는지 여기서 보여요.</li>
+    </ul>
+    <div class="tip">🍞 관리자만 창고에서 <b>🐟 물고기</b>를 골라 개인에게 직접 줄 수도 있어요. 오늘의 빵은 관리자도 하루 한 개예요.</div>
+  </section>
+
+  <!-- 8 -->
+  <section id="s8">
+    <h2>8. 자주 묻는 질문</h2>
+    <details open>
+      <summary>이름을 넣었는데 못 들어가요.</summary>
+      <p>관리자가 <b>제빵실 → 멤버 관리</b>에 이름을 등록해야 입장할 수 있어요. 등록한 이름과 <b>똑같이</b> 적어야 하니 띄어쓰기도 확인해 주세요.</p>
+    </details>
+    <details>
+      <summary>비밀번호를 잊어버렸어요.</summary>
+      <p>관리자에게 말씀해 주세요. 처음 로그인 비밀번호는 <b>0000</b>이고, 내 소개실에서 언제든 바꿀 수 있어요.</p>
+    </details>
+    <details>
+      <summary>어제 빵을 안 나눴는데 쌓이나요?</summary>
+      <p>아니요. 오늘의 빵은 <b>그날 안 나누면 사라져요.</b> 만나처럼 하루치예요 🙂</p>
+    </details>
+    <details>
+      <summary>묵상을 공개했다가 비공개로 바꿀 수 있나요?</summary>
+      <p>내 기록의 <b>편집</b>에서 내용을 고칠 수 있어요. 완전히 지우고 싶으면 <b>삭제</b>를 누르면 돼요.</p>
+    </details>
+    <details>
+      <summary>번역본 비교에서 색칠은 무슨 뜻인가요?</summary>
+      <p>번역본끼리 <b>표현이 실제로 갈리는 부분</b>에만 색을 칠해요. 같은 말을 어미만 다르게 쓴 것이나 뜻 차이가 없는 동의어에는 색이 안 붙어요. 색이 있는 곳이 곧 <b>묵상 포인트</b>예요.</p>
+    </details>
+    <details>
+      <summary>모임(유료 과정)은 어디서 신청하나요?</summary>
+      <p><a href="/join">모임 신청 페이지</a>에서 신청서를 넣으면, 망고가 확인하고 개별로 안내해 드려요.</p>
+    </details>
+  </section>
+
+  <p class="foot">
+    🥐 MOM Bakery 🍯 · Miracles on Miracles in Christ<br>
+    <a href="/">홈페이지</a> · <a href="/join">모임 신청</a><br>
+    <span class="small">더 궁금한 게 있으면 언제든 망고에게 물어봐 주세요 ☕</span>
+  </p>
+
+</div>
+</body>
+</html>
