@@ -5,6 +5,8 @@ import difflib
 import urllib.parse
 import urllib.request
 import urllib.error
+import html as _htmlmod
+from concurrent.futures import ThreadPoolExecutor
 from http.server import BaseHTTPRequestHandler
 
 
@@ -346,6 +348,120 @@ def parse_ref(passage):
     return None
 
 
+# ── 📖 실제 번역본 본문 가져오기 (bolls.life) ─────────────────────────────
+# ★이 앱의 핵심★ 번역본 본문은 AI 기억에서 꺼내지 않는다. 실제 성경 본문 제공처에서
+# 그대로 받아온다. AI는 단어·원어·배경 설명에만 쓴다.
+#   GET https://bolls.life/get-text/{번역본}/{책번호}/{장}/  → [{"verse":1,"text":"..."}, ...]
+# 책번호는 창세기=1 … 요한계시록=66. 키(API key) 필요 없음.
+# 서버가 작으니 전체 성경을 긁지 말라는 안내가 있어, 요청한 장만 받고 결과는 캐시한다.
+
+_BOOK_ORDER = [
+    'genesis', 'exodus', 'leviticus', 'numbers', 'deuteronomy', 'joshua', 'judges', 'ruth',
+    '1 samuel', '2 samuel', '1 kings', '2 kings', '1 chronicles', '2 chronicles', 'ezra',
+    'nehemiah', 'esther', 'job', 'psalms', 'proverbs', 'ecclesiastes', 'song of solomon',
+    'isaiah', 'jeremiah', 'lamentations', 'ezekiel', 'daniel', 'hosea', 'joel', 'amos',
+    'obadiah', 'jonah', 'micah', 'nahum', 'habakkuk', 'zephaniah', 'haggai', 'zechariah',
+    'malachi', 'matthew', 'mark', 'luke', 'john', 'acts', 'romans', '1 corinthians',
+    '2 corinthians', 'galatians', 'ephesians', 'philippians', 'colossians',
+    '1 thessalonians', '2 thessalonians', '1 timothy', '2 timothy', 'titus', 'philemon',
+    'hebrews', 'james', '1 peter', '2 peter', '1 john', '2 john', '3 john', 'jude',
+    'revelation',
+]
+BOLLS_BOOK = dict((n, i + 1) for i, n in enumerate(_BOOK_ORDER))
+
+# 화면에 보여 줄 4개 칸 → bolls.life 번역본 코드
+# ※ bolls의 'RNKSV'는 이름만 새번역이고 내용은 개역한글과 같아서 쓰지 않는다(직접 대조해 확인).
+BOLLS_TR = (('개역한글', 'KRV'), ('NKJV', 'NKJV'), ('NASB', 'NASB'))
+
+_TAG = re.compile(r'<[^>]+>')
+_STRONG = re.compile(r'<S>\d+</S>', re.I)
+
+
+def _html_text(s):
+    """bolls가 주는 본문은 HTML이라 태그·원어번호를 걷어내고 순수 문장만 남긴다."""
+    s = str(s or '')
+    s = _STRONG.sub(' ', s)
+    s = re.sub(r'<br\s*/?>', ' ', s, flags=re.I)
+    s = _TAG.sub('', s)
+    s = _htmlmod.unescape(s)
+    s = s.replace(' ', ' ')
+    return re.sub(r'\s+', ' ', s).strip()
+
+
+def _bolls_chapter(tr_code, book_id, chapter):
+    """한 번역본의 한 장을 통째로 받아 {절번호: 본문} 으로 돌려준다. 실패하면 {}."""
+    url = 'https://bolls.life/get-text/%s/%d/%d/' % (tr_code, book_id, chapter)
+    try:
+        req = urllib.request.Request(url, headers={'User-Agent': 'come-away/1.0',
+                                                   'Accept': 'application/json'})
+        with urllib.request.urlopen(req, timeout=12) as r:
+            rows = json.loads(r.read().decode('utf-8', 'ignore'))
+    except Exception:
+        return {}
+    out = {}
+    if isinstance(rows, list):
+        for it in rows:
+            if not isinstance(it, dict):
+                continue
+            n = _vnum(it.get('verse'))
+            t = _html_text(it.get('text'))
+            if n and t:
+                out[n] = t
+    return out
+
+
+def fetch_scripture(passage):
+    """요청한 본문을 4개 번역본 '실제 문장 그대로' 받아온다.
+    돌려주는 값: {'rows': [{'n':6, '개역한글':..., '새번역':..., 'NKJV':..., 'NASB':...}, ...],
+                  'ref': '여호수아 4:6-8', 'got': ['NKJV', ...]}
+    하나도 못 받으면 None."""
+    ref = parse_ref(passage)
+    if not ref:
+        return None
+    book, ch, v1, v2 = ref
+    book_id = BOLLS_BOOK.get(book)
+    if not book_id:
+        return None
+
+    with ThreadPoolExecutor(max_workers=4) as ex:      # 4개 번역본 동시에 → 빠르게
+        futs = [(label, ex.submit(_bolls_chapter, code, book_id, ch)) for label, code in BOLLS_TR]
+        chapters = []
+        for label, f in futs:
+            try:
+                chapters.append((label, f.result(timeout=15)))
+            except Exception:
+                chapters.append((label, {}))
+
+    got = [label for label, d in chapters if d]
+    if not got:
+        return None
+
+    # 요청한 절 범위 정하기 (장 전체면 받아온 절 전부)
+    if v1:
+        nums = list(range(v1, (v2 or v1) + 1))
+    else:
+        allv = set()
+        for _, d in chapters:
+            allv |= set(d.keys())
+        nums = sorted(allv)
+    nums = nums[:80]      # 너무 긴 장은 잘라 화면·비용을 지킨다
+
+    rows = []
+    for n in nums:
+        row = {'n': n}
+        for label, d in chapters:
+            row[label] = d.get(n, '')
+        if any(row[label] for label, _ in BOLLS_TR):
+            rows.append(row)
+    if not rows:
+        return None
+
+    r = passage.strip()
+    return {'rows': rows, 'ref': r, 'got': got,
+            'nums': [x['n'] for x in rows],
+            'byv': dict((x['n'], x.get('NKJV') or x.get('NASB') or '') for x in rows)}
+
+
 def fetch_anchor(passage):
     """공개 도메인 KJV 본문을 실제로 가져온다. 실패하면 None (분석은 계속 진행)."""
     ref = parse_ref(passage)
@@ -394,7 +510,11 @@ def _content_words(s):
     return set(x for x in w if len(x) > 2 and x not in _STOP_EN)
 
 
-TR_KEYS = ('개역개정', '새번역', 'NKJV', 'NASB')
+# 화면에 보여 줄 칸 순서. 개역한글·NKJV·NASB는 '실제 본문 그대로'(VERBATIM),
+# 개역개정·새번역은 저작권 때문에 공개 API가 없어 AI가 쓰되 실제 본문과 절 단위로 대조해 검증한다.
+TR_KEYS = ('개역개정', '새번역', '개역한글', 'NKJV', 'NASB')
+VERBATIM = ('개역한글', 'NKJV', 'NASB')
+AI_KO = ('개역개정', '새번역')
 
 
 def _vnum(x):
@@ -405,6 +525,92 @@ def _vnum(x):
 def _esc(s):
     """화면에 그대로 넣을 본문이므로 HTML 특수문자를 막아 둔다."""
     return (str(s or '').replace('&', '&amp;').replace('<', '&lt;').replace('>', '&gt;'))
+
+
+# ── 한국어 절 정렬 검증 ────────────────────────────────────────────────
+# 개역개정·새번역은 저작권 때문에 공개 API가 없어 AI가 쓴다. 대신 '실제로 받아온 개역한글'을
+# 자로 삼아, AI가 6절 자리에 5절 내용을 써 넣는 식의 밀림을 잡아낸다.
+# 판정 방법: 그 문장이 이웃 절(±1, ±2)보다 그 절과 더 닮았는가 (한글 2글자 조각 겹침).
+def _ko_grams(s):
+    s = re.sub(r'[^가-힣]', '', str(s or ''))
+    return set(s[i:i + 2] for i in range(len(s) - 1))
+
+
+def _sim(a, b):
+    if not a or not b:
+        return 0.0
+    return len(a & b) / float(min(len(a), len(b)))
+
+
+def ko_align_ok(text, byv_ko, n):
+    """AI가 쓴 n절 한국어 문장이 정말 n절 자리인지 판정."""
+    if not byv_ko or n not in byv_ko:
+        return True                       # 대조할 실제 본문이 없으면 판정 보류
+    g = _ko_grams(text)
+    if len(g) < 6:
+        return True                       # 너무 짧은 절은 판정 불가
+    here = _sim(g, _ko_grams(byv_ko.get(n)))
+    if here < 0.22:
+        return False                      # 그 절과 너무 안 닮음 = 다른 본문
+    for m in (n - 2, n - 1, n + 1, n + 2):
+        if m in byv_ko and _sim(g, _ko_grams(byv_ko[m])) > here + 0.05:
+            return False                  # 이웃 절과 더 닮음 = 한 절씩 밀려 씀
+    return True
+
+
+def merge_ai_korean(rows, ai_verses, byv_ko):
+    """받아온 실제 본문 rows에 AI가 쓴 개역개정·새번역을 절 번호로 붙인다.
+    한 절이라도 검증에 걸리면 그 칸은 통째로 비운다 (틀린 본문을 보여 주느니 안 보여 준다)."""
+    byn = {}
+    for v in (ai_verses or []):
+        if not isinstance(v, dict):
+            continue
+        n = _vnum(v.get('n'))
+        if n is not None:
+            byn[n] = v
+    bad = set()
+    for r in rows:
+        v = byn.get(r['n']) or {}
+        for k in AI_KO:
+            t = re.sub(r'\s+', ' ', str(v.get(k) or '')).strip()
+            if not t:
+                bad.add(k)
+                continue
+            if not ko_align_ok(t, byv_ko, r['n']):
+                bad.add(k)
+                continue
+            r[k] = t
+    for r in rows:
+        for k in bad:
+            r.pop(k, None)
+    return rows, [k for k in AI_KO if k not in bad]
+
+
+def rows_to_translations(rows):
+    """절별 본문 배열 → 화면용 translations. 절 번호를 윗첨자로 붙여 그대로 이어 붙인다."""
+    rows = [r for r in (rows or []) if isinstance(r, dict) and r.get('n')]
+    if not rows:
+        return None
+    rows = sorted(rows, key=lambda r: r['n'])
+    tr = {}
+    for k in TR_KEYS:
+        parts = ['<sup class="vn">%d</sup>%s' % (r['n'], _esc(r.get(k)))
+                 for r in rows if str(r.get(k) or '').strip()]
+        if parts:
+            tr[k] = ' '.join(parts)
+    return tr or None
+
+
+def scripture_block(sc):
+    """AI에게 넘길 '실제 본문' 블록. AI는 이 본문만 보고 단어·원어·배경을 설명한다."""
+    if not sc:
+        return ''
+    lines = []
+    for r in sc['rows'][:40]:
+        ko = r.get('개역한글') or r.get('새번역') or ''
+        en = r.get('NKJV') or r.get('NASB') or ''
+        lines.append('%d. %s / %s' % (r['n'], ko, en))
+    return '\n'.join(lines)
 
 
 def assemble(data):
@@ -592,7 +798,7 @@ words 규칙 (★"영어 사전"이라고 생각하고 뽑아라. 성경 해석�
 originals 규칙 (★영어단어 외우듯 '단어=뜻'으로 끝내지 마라. 이 칸의 목적은 뉘앙스다★):
 - 이 본문에서 가장 중요한 원어 딱 3개만.
 - Strong's 번호는 반드시 정확해야 한다 (블루레터바이블·바이블허브에서 검증 가능해야 하므로).
-- ★where는 반드시 채워라.★ 읽는 사람이 "몇 절 어느 단어가 이 원어인지"를 알아야 본문에서 찾을 수 있다. 절 번호 + 그 자리의 한국어 표현(개역개정 기준)을 꼭 같이 적어라. 절이 하나뿐인 본문이면 그 절 번호를 그대로 적어라.
+- ★where는 반드시 채워라.★ 읽는 사람이 "몇 절 어느 단어가 이 원어인지"를 알아야 본문에서 찾을 수 있다. 절 번호 + 그 자리의 한국어 표현(개역한글 기준)을 꼭 같이 적어라. 절이 하나뿐인 본문이면 그 절 번호를 그대로 적어라.
 - meaning은 사전 뜻 한 줄로 짧게 끝내라. 설명은 nuance에서 한다.
 - nuance는 "그래서 이게 뭐가 다른데?"에 답해야 한다. 예를 들어 '거룩하게 하다'로 끝내지 말고, 카다쉬는 도덕적으로 깨끗해지는 말이 아니라 '보통의 자리에서 떼어 내어 하나님께 속하게 하는' 말이며 사람이 스스로 하는 게 아니라 하나님이 하시는 동작이 대부분이라는 식으로, 그 단어의 결을 드러내라.
 - ★refs는 반드시 2~3개 넣어라.★ 반드시 "이 본문이 아닌 다른 성경 구절"에서, "같은 Strong's 번호"가 쓰인 자리를 골라라. 유명하고 그림이 그려지는 장면을 우선하라 (예: H6942 카다쉬 → 창 2:3 일곱째 날, 출 3:5 거룩한 땅, 출 19:23 시내산 경계).
@@ -603,6 +809,46 @@ verses 규칙:
 - 절 본문에는 아무 표시(별표·괄호·하이라이트)도 붙이지 마라. 그 번역본의 문장을 있는 그대로만 적어라.
 - 절 번호는 "n"에만 숫자로 적고, 본문 문자열 안에는 절 번호를 쓰지 마라.
 추측하지 말고 확실한 것만. JSON만 출력.'''
+
+
+# ── 본문을 실제로 받아왔을 때 쓰는 프롬프트 ────────────────────────────────
+# 번역본 본문은 bolls.life에서 그대로 받아 왔으므로, AI에게는 단어·원어·배경만 시킨다.
+# (본문을 AI 기억에서 꺼내지 않으니 '엉뚱한 장절' 문제가 원천적으로 사라진다.)
+def _prompt_slice(a, b):
+    i = PROMPT.find(a)
+    j = PROMPT.find(b)
+    return PROMPT[i:j] if 0 <= i < j else ''
+
+
+_STUDY_SCHEMA = _prompt_slice('  "words": [', '\n\nwords 규칙')
+_STUDY_RULES = _prompt_slice('words 규칙', '\nverses 규칙:')
+
+STUDY_PROMPT = ('''아래는 "{passage}"의 실제 성경 본문이다. 성경 본문 제공처에서 그대로 받아온 것이라
+절 번호와 내용이 이미 정확하다. 이 본문 밖으로 나가지 마라.
+
+[실제 본문 — 절 번호. 개역한글 / NKJV]
+{text}
+
+■ 절대 규칙
+- 위에 있는 절 번호만 쓴다. 위에 없는 절을 만들거나 이웃 장·절 내용을 끌어오면 오답이다.
+- 개역한글·NKJV·NASB 본문은 이미 확보했으니 다시 쓰지 마라.
+- verses에는 **개역개정과 새번역만** 적는다. 각 절의 내용은 위 같은 번호의 개역한글과
+  같은 사건·같은 문장이어야 한다 (표기와 문체만 그 번역본의 것으로). 한 절이라도 밀려 쓰면 전부 버려진다.
+- 개역개정은 개역한글의 개정판이라 대체로 비슷하고, 새번역은 현대어체로 더 풀어 쓴다.
+  둘을 똑같이 쓰지 말고 각 번역본의 실제 문장으로 적어라. 확실하지 않으면 빈 문자열로 두어라.
+
+아래 JSON 형식으로만 응답해줘. 코드블록 없이 JSON만.
+
+{{
+  "verses": [
+    {{
+      "n": 6,
+      "개역개정": "그 절의 개역개정 본문 (그 절만, 표시 없는 순수 본문)",
+      "새번역": "그 절의 새번역 본문 (그 절만)"
+    }}
+  ],
+''' + _STUDY_SCHEMA + '\n\n' + _STUDY_RULES + '\n추측하지 말고 확실한 것만. JSON만 출력.') \
+    if (_STUDY_SCHEMA and _STUDY_RULES) else None
 
 
 DEFINE_PROMPT = '''아래 영어 단어들의 "영어사전 뜻"을 알려줘. 성경 해석이 아니라 표준 영어사전(옥스퍼드·메리엄웹스터 급) 기준이다.
@@ -630,7 +876,7 @@ DEFINE_PROMPT = '''아래 영어 단어들의 "영어사전 뜻"을 알려줘. �
 JSON만 출력.'''
 
 
-SCHEMA_VER = 15  # 분석 결과 형식 버전. 올리면 이전 캐시를 자동으로 무시하고 다시 분석함.
+SCHEMA_VER = 16  # 분석 결과 형식 버전. 올리면 이전 캐시를 자동으로 무시하고 다시 분석함.
 
 
 def _valid(d):
@@ -759,8 +1005,56 @@ class handler(BaseHTTPRequestHandler):
                 self._send_json(data)
                 return
 
-            # 1-b. 실제 성경 본문(KJV, 공개 도메인)을 먼저 가져와 '정답표'로 삼는다.
-            #      AI가 장절을 헷갈려 엉뚱한 본문을 지어내는 것을 막기 위함.
+            # 1-b. ★번역본 본문을 '실제로' 받아온다.★
+            #      AI 기억에서 꺼내면 장절이 밀리거나 지어내는 일이 생긴다.
+            #      개역한글·NKJV·NASB는 성경 본문 제공처에서 그대로 받아 화면에 쓰고,
+            #      개역개정·새번역은 (공개 API가 없어) AI가 쓰되 받아온 본문과 절 단위로 대조한다.
+            #      AI는 그 밖에 단어·원어·배경 설명에만 쓴다.
+            sc = fetch_scripture(passage)
+            if sc and STUDY_PROMPT:
+                if True:
+                    text = scripture_block(sc)
+                    prompt = STUDY_PROMPT.format(passage=passage, text=text)
+                    try:
+                        data = call_ai_raw(prompt)
+                    except (ValueError, json.JSONDecodeError):
+                        try:
+                            data = call_ai_raw(prompt, strict=True)
+                        except Exception:
+                            data = {}
+                    except Exception:
+                        data = {}
+                    if not isinstance(data, dict):
+                        data = {}
+
+                    # 받아온 실제 본문에 AI가 쓴 개역개정·새번역을 붙이고 절 단위로 검증.
+                    # 검증에 걸린 칸은 아예 빼 버린다 (틀린 본문보다 없는 게 낫다).
+                    byv_ko = dict((r['n'], r.get('개역한글') or '') for r in sc['rows'])
+                    rows, ko_ok = merge_ai_korean(sc['rows'], data.get('verses'), byv_ko)
+                    tr = rows_to_translations(rows)
+                    if not tr:
+                        raise RuntimeError('본문 조립 실패')
+
+                    data['translations'] = tr          # ★개역한글·NKJV·NASB는 받아온 그대로★
+                    data['source'] = 'bolls'
+                    data['verbatim'] = [k for k in VERBATIM if tr.get(k)]
+                    data['tr_got'] = sc['got'] + ko_ok
+                    if isinstance(data.get('words'), list):
+                        data['words'] = data['words'][:12]
+                    data.pop('diffs', None)
+                    data.pop('verses', None)
+                    data.pop('verses_rows', None)
+                    data['v'] = SCHEMA_VER
+
+                    sb('DELETE', 'analyses?passage_key=eq.' + qkey, silent=True)
+                    sb('POST', 'analyses',
+                       {'passage_key': key, 'passage': passage, 'data': data}, silent=True)
+                    data['cached'] = False
+                    self._send_json(data)
+                    return
+
+            # 1-c. 본문 제공처가 응답하지 않을 때만 예비 경로: AI가 본문을 쓰되,
+            #      공개 도메인 KJV를 '정답표'로 삼아 절 단위로 대조·검증한다.
             anchor = fetch_anchor(passage)
 
             def attempt(strict):

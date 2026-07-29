@@ -104,6 +104,7 @@ textarea:focus{border-color:var(--green)}
 .trans-table tr:last-child td{border-bottom:none}
 .hl{background:var(--soft-yellow);padding:1px 5px;border-radius:6px;color:var(--terra-d);font-weight:700}
 .vn{color:var(--green-d);font-size:calc(10px * var(--fs));font-weight:700;margin-right:2px;vertical-align:super;line-height:0}
+    .verbatim{display:inline-block;background:var(--green-l);color:var(--green-d);font-size:calc(9.5px * var(--fs));font-weight:700;border-radius:999px;padding:1px 6px;margin-left:4px;vertical-align:middle}
 .pos-badge{background:var(--terra-l);color:var(--terra-d);font-size:calc(10px * var(--fs));padding:2px 8px;border-radius:999px;vertical-align:middle;margin-left:5px}
 .word-card{border:2px solid var(--line-l);border-radius:12px;padding:14px 16px;margin-bottom:10px;background:white;border-left:5px solid var(--green)}
 .word-num{font-size:calc(11px * var(--fs));color:var(--terra);margin-bottom:4px;font-family:'Jua',sans-serif}
@@ -1092,8 +1093,9 @@ function render(data) {
   lastTrans = trans;
   lastAnalysis = data;
   const tbody = document.getElementById('trans-body');
-  tbody.innerHTML = ['개역개정','새번역','NKJV','NASB'].map(v =>
-    trans[v] ? `<tr><td>${v}${(v==='NKJV'||v==='NASB')?`<button class="tts-btn" title="영어로 듣기" onclick="speakTrans('${v}')">🔊</button>`:''}</td><td>${trans[v]}</td></tr>` : ''
+  const verbatim = Array.isArray(data.verbatim) ? data.verbatim : [];
+  tbody.innerHTML = ['개역개정','새번역','개역한글','NKJV','NASB'].map(v =>
+    trans[v] ? `<tr><td>${v}${verbatim.indexOf(v)>=0?`<span class="verbatim" title="성경 본문 제공처에서 받아온 원문 그대로예요">원문</span>`:''}${(v==='NKJV'||v==='NASB')?`<button class="tts-btn" title="영어로 듣기" onclick="speakTrans('${v}')">🔊</button>`:''}</td><td>${trans[v]}</td></tr>` : ''
   ).join('');
   document.getElementById('words-body').innerHTML = '<div class="words-grid">' + wordsArr.map((w,i) => {
     w = w || {};
@@ -2082,7 +2084,7 @@ function copyAnalysis() {
   const d = lastAnalysis;
   const passage = document.getElementById('passage').value.trim();
   let md = `# 📖 ${passage || '성경 분석'}\n\n## 번역본 비교\n`;
-  ['개역개정','새번역','NKJV','NASB'].forEach(v => {
+  ['개역개정','새번역','개역한글','NKJV','NASB'].forEach(v => {
     if(d.translations && d.translations[v]) md += `**${v}** ${stripHl(d.translations[v])}\n\n`;
   });
   if((d.words||[]).length) {
@@ -2221,6 +2223,6 @@ setInterval(()=>{ if(!document.hidden) loadDashboard(); }, 30000);
 document.addEventListener('visibilitychange', ()=>{ if(!document.hidden) loadDashboard(); });
 if('serviceWorker' in navigator) navigator.serviceWorker.register('/sw.js').catch(()=>{});
 </script>
-<!-- build:v15-nohl -->
+<!-- build:v16-real -->
 </body>
 </html>
