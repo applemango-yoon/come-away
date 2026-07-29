@@ -1094,7 +1094,7 @@ function render(data) {
   lastAnalysis = data;
   const tbody = document.getElementById('trans-body');
   const verbatim = Array.isArray(data.verbatim) ? data.verbatim : [];
-  tbody.innerHTML = ['개역개정','새번역','개역한글','NKJV','NASB'].map(v =>
+  tbody.innerHTML = ['개역개정','새번역','NKJV','NASB'].map(v =>
     trans[v] ? `<tr><td>${v}${verbatim.indexOf(v)>=0?`<span class="verbatim" title="성경 본문 제공처에서 받아온 원문 그대로예요">원문</span>`:''}${(v==='NKJV'||v==='NASB')?`<button class="tts-btn" title="영어로 듣기" onclick="speakTrans('${v}')">🔊</button>`:''}</td><td>${trans[v]}</td></tr>` : ''
   ).join('');
   document.getElementById('words-body').innerHTML = '<div class="words-grid">' + wordsArr.map((w,i) => {
@@ -2084,7 +2084,7 @@ function copyAnalysis() {
   const d = lastAnalysis;
   const passage = document.getElementById('passage').value.trim();
   let md = `# 📖 ${passage || '성경 분석'}\n\n## 번역본 비교\n`;
-  ['개역개정','새번역','개역한글','NKJV','NASB'].forEach(v => {
+  ['개역개정','새번역','NKJV','NASB'].forEach(v => {
     if(d.translations && d.translations[v]) md += `**${v}** ${stripHl(d.translations[v])}\n\n`;
   });
   if((d.words||[]).length) {
@@ -2223,6 +2223,6 @@ setInterval(()=>{ if(!document.hidden) loadDashboard(); }, 30000);
 document.addEventListener('visibilitychange', ()=>{ if(!document.hidden) loadDashboard(); });
 if('serviceWorker' in navigator) navigator.serviceWorker.register('/sw.js').catch(()=>{});
 </script>
-<!-- build:v16-real -->
+<!-- build:v17 -->
 </body>
 </html>

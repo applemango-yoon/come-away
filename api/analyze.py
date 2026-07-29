@@ -510,10 +510,11 @@ def _content_words(s):
     return set(x for x in w if len(x) > 2 and x not in _STOP_EN)
 
 
-# 화면에 보여 줄 칸 순서. 개역한글·NKJV·NASB는 '실제 본문 그대로'(VERBATIM),
-# 개역개정·새번역은 저작권 때문에 공개 API가 없어 AI가 쓰되 실제 본문과 절 단위로 대조해 검증한다.
-TR_KEYS = ('개역개정', '새번역', '개역한글', 'NKJV', 'NASB')
-VERBATIM = ('개역한글', 'NKJV', 'NASB')
+# 화면에 보여 줄 칸 순서. NKJV·NASB는 '실제 본문 그대로'(VERBATIM).
+# 개역개정·새번역은 저작권 때문에 공개 API가 없어 AI가 쓰되, 실제로 받아온 개역한글과
+# 절 단위로 대조해 검증한다. (개역한글은 '자'로만 쓰고 화면에는 띄우지 않는다 — 번역본이 너무 많아짐)
+TR_KEYS = ('개역개정', '새번역', 'NKJV', 'NASB')
+VERBATIM = ('NKJV', 'NASB')
 AI_KO = ('개역개정', '새번역')
 
 
@@ -792,8 +793,11 @@ words 규칙 (★"영어 사전"이라고 생각하고 뽑아라. 성경 해석�
 - everlasting과 eternal처럼 서로 다른 단어는 하나로 묶지 말고 각각 따로 항목으로 넣어라. ("everlasting life / eternal life"처럼 합치지 마라.)
 - meaning = 표준 영어사전의 사전적 정의(한국어) 2~3개. 문맥 의역·성경식 풀이 금지. 그 단어를 사전에서 찾으면 나오는 뜻을 적어라.
 - nuance = 그 단어가 "영어에서 일상적으로 어떤 어감·용법으로 쓰이는지" + 예문 하나. 성경적 의미로 설명하지 마라. (예: so는 too와 달리 긍정적 강조에 쓴다는 식.)
-- 쉽고 뻔한 단어(the, and, God, is)는 빼고, 배울 가치가 있는 단어·표현 위주로.
-- ★개수: 반드시 8개 이상 12개까지 뽑아라.★ 5개만 주는 것은 부족하다. 본문이 여러 절이면 절마다 골고루 뽑아라. 중급 이상 학습자에게 유용한 단어(commanded, provisions, possess, rest, servant, remember, prepare, officers, tribe, inheritance 같은 수준)면 충분히 넣을 만하다. 정말로 본문이 짧아 단어가 모자랄 때만 8개 미만이어도 된다.
+- ★난이도: '영어 초보인 성인'이 대상이다. 우리나라 중학교 교과서 수준의 단어·표현을 뽑아라.★
+  - 빼라 (초등 수준이라 이미 안다): go, come, see, know, say, tell, man, day, water, stone, land, big, good, old, house, name, take, give, make, put, walk, hand, word, God, the, and, is 같은 낱말.
+  - 넣어라 (중학교 수준): commanded, remember, prepare, servant, memorial, inheritance, possess, provisions, tribe, officers, everlasting, perish, dedicate, righteous, covenant, gather, promise, obey, honor, refuge, deliver 같은 낱말과, lay down·pass over·set apart 같은 굳어진 표현.
+  - 너무 어려운 신학 전문어(propitiation, sanctification 같은 것)도 빼라. 중학교 교과서에서 볼 법한 수준이 딱 좋다.
+- ★개수: 반드시 8개 이상 12개까지 뽑아라.★ 5개만 주는 것은 부족하다. 본문이 여러 절이면 절마다 골고루 뽑아라. 위에 적은 '중학교 수준'에 해당하면 충분히 넣을 만하다. 그 수준의 단어가 정말 모자랄 때만 8개 미만이어도 된다 — 개수를 채우려고 초등 수준 단어를 억지로 넣지는 마라.
 - 원어(헬라어/히브리어)는 words에 넣지 마 (originals에서).
 originals 규칙 (★영어단어 외우듯 '단어=뜻'으로 끝내지 마라. 이 칸의 목적은 뉘앙스다★):
 - 이 본문에서 가장 중요한 원어 딱 3개만.
@@ -876,7 +880,7 @@ DEFINE_PROMPT = '''아래 영어 단어들의 "영어사전 뜻"을 알려줘. �
 JSON만 출력.'''
 
 
-SCHEMA_VER = 16  # 분석 결과 형식 버전. 올리면 이전 캐시를 자동으로 무시하고 다시 분석함.
+SCHEMA_VER = 17  # 분석 결과 형식 버전. 올리면 이전 캐시를 자동으로 무시하고 다시 분석함.
 
 
 def _valid(d):
