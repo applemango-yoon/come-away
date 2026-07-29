@@ -24,7 +24,8 @@ def member_ok(h):
 
 
 def mark_highlights(text):
-    return re.sub(r'\[H\](.*?)\[/H\]', r'<span class="hl">\1</span>', text)
+    text = re.sub(r'\[H\](.*?)\[/H\]', r'<span class="hl">\1</span>', text)
+    return re.sub(r'\[V(\d+)\]\s*', r'<sup class="vn">\1</sup>', text)
 
 
 # ── 하이라이트 검증: '똑같은 표현'은 코드로 강제 제거 ────────────────────
@@ -376,6 +377,9 @@ def fetch_anchor(passage):
     return {'ref': d.get('reference') or q,
             'lines': lines,
             'text': ' '.join(lines),
+            'exact': v1 is not None,
+            'byv': dict((v.get('verse'), re.sub(r'\s+', ' ', str(v.get('text') or '')).strip())
+                        for v in verses if v.get('verse')),
             'nums': [v.get('verse') for v in verses if v.get('verse')]}
 
 
@@ -390,23 +394,72 @@ def _content_words(s):
     return set(x for x in w if len(x) > 2 and x not in _STOP_EN)
 
 
-def anchor_match(data, anchor):
-    """AI가 돌려준 영어 본문이 '진짜 그 본문'인지 KJV 앵커와 낱말 겹침으로 검증.
-    같은 절의 다른 번역본이면 내용어가 크게 겹친다. 다른 장·절이면 거의 안 겹친다."""
+TR_KEYS = ('개역개정', '새번역', 'NKJV', 'NASB')
+
+
+def _vnum(x):
+    s = re.sub(r'\D', '', str(x if x is not None else ''))
+    return int(s) if s else None
+
+
+def assemble(data):
+    """AI가 준 verses(절별 배열) → 화면용 translations.
+    절 번호를 [Vn] 마커로 심어서 표시하고, 검증에도 쓴다."""
+    vs = (data or {}).get('verses')
+    if not isinstance(vs, list) or not vs:
+        return None
+    rows = []
+    for v in vs:
+        if not isinstance(v, dict):
+            continue
+        n = _vnum(v.get('n'))
+        if n is None:
+            continue
+        row = {'n': n}
+        for k in TR_KEYS:
+            row[k] = re.sub(r'\s+', ' ', str(v.get(k) or '')).strip()
+        if any(row[k] for k in TR_KEYS):
+            rows.append(row)
+    if not rows:
+        return None
+    rows.sort(key=lambda r: r['n'])
+    tr = {}
+    for k in TR_KEYS:
+        parts = ['[V%d] %s' % (r['n'], r[k]) for r in rows if r[k]]
+        if parts:
+            tr[k] = ' '.join(parts)
+    return {'rows': rows, 'translations': tr} if tr else None
+
+
+def verses_ok(rows, anchor):
+    """★핵심 검증★ 절 번호가 요청 범위와 정확히 맞는지, 그리고 '절마다' 내용이
+    그 절의 실제 본문과 맞는지 대조한다. 한두 절씩 밀려 쓰는 오류를 여기서 잡는다."""
     if not anchor:
         return True
-    base = _content_words(anchor['text'])
-    if len(base) < 5:
-        return True
-    tr = (data or {}).get('translations') or {}
-    best = 0.0
-    for k in ('NKJV', 'NASB'):
-        got = _content_words(tr.get(k))
-        if not got:
-            continue
-        cover = len(base & got) / float(len(base))
-        best = max(best, cover)
-    return best >= 0.45
+    rows = rows or []
+    if not rows:
+        return False
+    want = [n for n in (anchor.get('nums') or []) if n]
+    got = [r['n'] for r in rows]
+    if want:
+        if anchor.get('exact'):
+            if got != want:                      # 범위를 지정했으면 절 번호가 정확히 같아야 한다
+                return False
+        elif not set(got) <= set(want):
+            return False
+    byv = anchor.get('byv') or {}
+    checked = 0
+    for r in rows:
+        base = _content_words(byv.get(r['n']))
+        if len(base) < 4:
+            continue                             # 너무 짧은 절은 판정 불가
+        got_w = _content_words(r.get('NKJV')) | _content_words(r.get('NASB'))
+        if not got_w:
+            return False
+        if len(base & got_w) / float(len(base)) < 0.4:
+            return False                         # 그 절 자리에 다른 절 내용이 들어옴
+        checked += 1
+    return checked > 0 or not byv
 
 
 _ARCHAIC = re.compile(r'\b(ye|thou|thy|thee|hath|doth|saith|hither|unto|'
@@ -470,6 +523,9 @@ PROMPT = '''성경 본문 "{passage}"를 분석해서 아래 JSON 형식으로�
 본문이 여러 절 범위(예: 시편 23:1-3)라면 그 범위의 모든 절을 포함해서 분석해줘.
 {anchor}
 ■ 본문 정확성 — 다른 무엇보다 먼저 지켜야 할 규칙:
+- ★verses는 절 하나에 항목 하나씩, "n"에 절 번호를 반드시 숫자로 적어라. 요청 범위의 절 번호와 **정확히 일치**해야 한다.
+  (예: "여호수아 4:6-8"을 요청받았으면 n은 6, 7, 8 세 개. 4나 5를 넣거나 6만 넣으면 오답이다.)
+- ★각 항목의 내용은 그 절 번호의 내용이어야 한다. 한 절씩 밀려 쓰는 실수가 가장 흔하니, 적기 전에 절 번호와 내용을 한 번 대조하라.
 - 요청받은 장·절의 내용을 정확히 다뤄야 한다. 기억이 흐릿하면 지어내지 말고, 위에 주어진 실제 본문을 그대로 근거로 삼아라.
 - 인접한 장(예: 4장을 요청했는데 3장 내용)을 쓰는 것은 절대 금지다. 이 도구는 성경 공부용이라 본문이 틀리면 아무 의미가 없다.
 - NKJV와 NASB는 **현대 영어 번역본**이다. KJV의 옛 문체(passeth, cometh, ye, thou, thy, thee, unto, hath, doth, saith, hither)를 쓰면 안 된다.
@@ -500,12 +556,15 @@ PROMPT = '''성경 본문 "{passage}"를 분석해서 아래 JSON 형식으로�
 빠뜨리지 말고 다 찾아라. 본문에 다른 자리가 많으면 10쌍 이상이어도 괜찮다.
 
 {{
-  "translations": {{
-    "개역개정": "(범위 전체 본문, 표시 없는 순수 본문)",
-    "새번역": "(범위 전체 본문, 표시 없는 순수 본문)",
-    "NKJV": "(full text of the whole range, plain text)",
-    "NASB": "(full text of the whole range, plain text)"
-  }},
+  "verses": [
+    {{
+      "n": 6,
+      "개역개정": "그 절의 개역개정 본문 (그 절만, 표시 없는 순수 본문)",
+      "새번역": "그 절의 새번역 본문 (그 절만)",
+      "NKJV": "that verse only, NKJV (modern English)",
+      "NASB": "that verse only, NASB (modern English)"
+    }}
+  ],
   "diffs": {{
     "ko": [ {{"개역개정": "독생자", "새번역": "외아들"}} ],
     "en": [ {{"NKJV": "want", "NASB": "lack"}} ]
@@ -592,11 +651,11 @@ DEFINE_PROMPT = '''아래 영어 단어들의 "영어사전 뜻"을 알려줘. �
 JSON만 출력.'''
 
 
-SCHEMA_VER = 13  # 분석 결과 형식 버전. 올리면 이전 캐시를 자동으로 무시하고 다시 분석함.
+SCHEMA_VER = 14  # 분석 결과 형식 버전. 올리면 이전 캐시를 자동으로 무시하고 다시 분석함.
 
 
 def _valid(d):
-    """분석 결과가 화면에 그릴 만큼 온전한지 (translations 딕셔너리가 있는지)."""
+    """분석 결과가 화면에 그릴 만큼 온전한지 (assemble()이 만든 translations가 있는지)."""
     return isinstance(d, dict) and isinstance(d.get('translations'), dict) and len(d.get('translations')) > 0
 
 
@@ -635,10 +694,12 @@ def anchor_block(anchor):
     """프롬프트에 끼워 넣을 '정답 본문' 블록."""
     if not anchor:
         return ''
-    return ('\n■ 이 본문의 실제 내용 (KJV, 공개 도메인 — 반드시 이 내용을 다뤄라):\n'
+    return ('\n■ 이 본문의 실제 내용 — 절 번호와 내용의 정답표다 (참고용 공개 도메인 원문):\n'
             '[' + anchor['ref'] + ']\n' + '\n'.join(anchor['lines']) +
-            '\n위 절 번호와 내용이 정답이다. 다른 장·절의 내용을 쓰면 오답이다.\n'
-            '단, 위 KJV 문장을 그대로 베끼지는 마라 — NKJV·NASB는 각자의 현대 영어 문장으로 적어야 한다.\n')
+            '\n★verses의 "n"과 내용은 위 표와 절 단위로 정확히 맞아야 한다. '
+            '위에 없는 절을 넣거나, 위에 있는 절을 빠뜨리거나, 한 절씩 밀려 쓰면 전부 오답이다.\n'
+            '★단, 위 문장을 그대로 베끼지 마라. 위는 옛 문체(KJV)이고 화면에 나가는 것은 '
+            'NKJV·NASB·개역개정·새번역이다. 내용만 맞추고 문장은 각 번역본의 것으로 적어라.\n')
 
 
 def call_ai(passage, strict=False, anchor=None):
@@ -707,25 +768,28 @@ class handler(BaseHTTPRequestHandler):
             key = normalize_key(passage)
             qkey = urllib.parse.quote(key)
 
-            # 1. 캐시 확인 — 단, 온전한(translations 있는) 결과만 사용. 예전에 저장된 깨진 캐시는 무시.
-            cached = sb('GET', 'analyses?passage_key=eq.' + qkey + '&select=data', silent=True)
-            if cached and _valid(cached[0].get('data')) and cached[0]['data'].get('v') == SCHEMA_VER:
-                data = cached[0]['data']
-                data['cached'] = True
-                self._send_json(data)
-                return
-
-            # 1-b. 실제 성경 본문(KJV, 공개 도메인)을 먼저 가져와 '정답'으로 삼는다.
-            #      AI가 장절을 헷갈려 엉뚱한 본문을 지어내는 것을 막기 위함.
+            # 1. 실제 성경 본문(KJV, 공개 도메인)을 먼저 가져와 '정답표'로 삼는다.
+            #    AI가 장절을 헷갈려 엉뚱한 본문을 지어내는 것을 막기 위함.
+            #    ※ 남이 검색해 둔 캐시 본문은 더 이상 그대로 쓰지 않는다.
+            #      한 번 잘못 저장된 본문이 계속 퍼지는 것을 막으려고, 요청할 때마다 새로 분석하고 검증한다.
             anchor = fetch_anchor(passage)
+
+            def attempt(strict):
+                """AI 호출 → 절별 배열(verses)을 화면용 translations로 조립까지."""
+                d = call_ai(passage, strict=strict, anchor=anchor)
+                a = assemble(d)
+                if a:
+                    d['verses_rows'] = a['rows']
+                    d['translations'] = a['translations']
+                return d
 
             # 2. AI 호출 (JSON 파싱/형식 실패 시 strict 모드로 1회 재시도)
             try:
-                data = call_ai(passage, anchor=anchor)
+                data = attempt(False)
                 if not _valid(data):
-                    data = call_ai(passage, strict=True, anchor=anchor)
+                    data = attempt(True)
             except (ValueError, json.JSONDecodeError):
-                data = call_ai(passage, strict=True, anchor=anchor)
+                data = attempt(True)
 
             # 결과가 여전히 온전치 않으면 깨진 데이터를 저장/반환하지 않고 명확히 알린다.
             if not _valid(data):
@@ -733,19 +797,21 @@ class handler(BaseHTTPRequestHandler):
                                  'message': '분석 결과를 온전히 받지 못했어요. 잠시 후 다시 시도해 주세요.'}, 502)
                 return
 
-            # 2-b. 본문 검증 — 엉뚱한 장·절이거나 NKJV/NASB 자리에 KJV 옛 문체가 오면 1회 재시도.
-            if (anchor and not anchor_match(data, anchor)) or archaic_bad(data):
+            # 2-b. ★절 단위 검증★ — 절 번호가 요청 범위와 정확히 같은지, 절마다 내용이 그 절의
+            #      실제 본문과 맞는지 대조한다. 한 절씩 밀려 쓴 결과나 NKJV/NASB 자리의 KJV
+            #      옛 문체가 걸리면 1회 재시도.
+            if (anchor and not verses_ok(data.get('verses_rows'), anchor)) or archaic_bad(data):
                 try:
-                    retry = call_ai(passage, strict=True, anchor=anchor)
-                    if _valid(retry):
+                    retry = attempt(True)
+                    if _valid(retry) and (not anchor or verses_ok(retry.get('verses_rows'), anchor)):
                         data = retry
                 except (ValueError, json.JSONDecodeError):
                     pass
             # 재시도 후에도 '다른 본문'이면 틀린 말씀을 보여주느니 솔직히 알린다.
-            if anchor and not anchor_match(data, anchor):
+            if anchor and not verses_ok(data.get('verses_rows'), anchor):
                 self._send_json({'error': 'wrong_passage',
                                  'message': '요청하신 본문과 다른 내용이 와서 표시하지 않았어요. '
-                                            '잠시 후 다시 시도해 주세요. (' + anchor['ref'] + ')'}, 502)
+                                            '한 번만 다시 눌러 주세요. (' + anchor['ref'] + ')'}, 502)
                 return
 
             # 단어는 최대 10개까지만 (AI가 더 줘도 잘라냄; 부족하면 있는 만큼)
@@ -762,6 +828,8 @@ class handler(BaseHTTPRequestHandler):
                 if isinstance(v, str):
                     data['translations'][k] = mark_highlights(v)
 
+            data.pop('verses', None)        # 조립이 끝났으면 원본 절 배열은 보낼 필요 없다
+            data.pop('verses_rows', None)
             data['v'] = SCHEMA_VER   # 형식 버전 기록 (옛 캐시 자동 무효화용)
 
             # 3. 캐시 교체 저장 (예전/깨진 캐시가 있으면 지우고 새로 저장). 실패해도 응답엔 지장 없음.
