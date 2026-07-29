@@ -54,7 +54,7 @@ class handler(BaseHTTPRequestHandler):
             body = json.dumps(dump, ensure_ascii=False, indent=2).encode()
             self.send_response(200)
             self.send_header('Content-Type', 'application/json; charset=utf-8')
-            fname = 'come-away-backup-' + datetime.now(KST).strftime('%Y%m%d') + '.json'
+            fname = 'mom-bakery-backup-' + datetime.now(KST).strftime('%Y%m%d') + '.json'
             self.send_header('Content-Disposition', f'attachment; filename="{fname}"')
             self.send_header('Content-Length', str(len(body)))
             self.end_headers()

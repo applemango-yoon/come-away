@@ -392,7 +392,7 @@ def _bolls_chapter(tr_code, book_id, chapter):
     """한 번역본의 한 장을 통째로 받아 {절번호: 본문} 으로 돌려준다. 실패하면 {}."""
     url = 'https://bolls.life/get-text/%s/%d/%d/' % (tr_code, book_id, chapter)
     try:
-        req = urllib.request.Request(url, headers={'User-Agent': 'come-away/1.0',
+        req = urllib.request.Request(url, headers={'User-Agent': 'mom-bakery/1.0',
                                                    'Accept': 'application/json'})
         with urllib.request.urlopen(req, timeout=12) as r:
             rows = json.loads(r.read().decode('utf-8', 'ignore'))
@@ -475,7 +475,7 @@ def fetch_anchor(passage):
             q += '-%d' % v2
     url = 'https://bible-api.com/' + urllib.parse.quote(q) + '?translation=kjv'
     try:
-        req = urllib.request.Request(url, headers={'User-Agent': 'come-away/1.0'})
+        req = urllib.request.Request(url, headers={'User-Agent': 'mom-bakery/1.0'})
         with urllib.request.urlopen(req, timeout=10) as r:
             d = json.loads(r.read())
     except Exception:

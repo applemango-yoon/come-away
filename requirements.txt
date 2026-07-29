@@ -1,1 +1,2 @@
-# no packages
+# 웹 푸시(아침 알림) 발송용 — api/remind.py 에서 사용
+pywebpush==2.0.0

@@ -22,13 +22,13 @@ def sb(method, path, data=None):
 
 
 def build_email(name, done_names, site):
-    # 오병이어 상점 테마 아침 묵상 알림 메일
+    # MOM 베이커리 테마 아침 묵상 알림 메일
     return f'''
     <div style="margin:0;padding:24px 12px;background:#f6f1e7;font-family:'Apple SD Gothic Neo','Malgun Gothic',sans-serif">
       <div style="max-width:460px;margin:0 auto;background:#fffdf6;border:1px solid #ddd0ba;border-radius:18px;overflow:hidden">
         <div style="background:#cd8a62;padding:18px 20px;text-align:center">
-          <div style="font-size:22px;font-weight:800;color:#fffdf6;letter-spacing:1px">🐟 Come Away 🍞</div>
-          <div style="font-size:12px;color:#f5e9c9;margin-top:3px">작은 오병이어 상점 · 아침 묵상</div>
+          <div style="font-size:22px;font-weight:800;color:#fffdf6;letter-spacing:1px">🥐 MOM 베이커리 🍯</div>
+          <div style="font-size:12px;color:#f5e9c9;margin-top:3px">Miracles on Miracles in Christ · 아침 묵상</div>
         </div>
         <div style="padding:26px 24px">
           <div style="font-size:17px;font-weight:800;color:#4c4237;margin-bottom:10px">🌅 {name}님, 좋은 아침이에요!</div>
@@ -41,7 +41,7 @@ def build_email(name, done_names, site):
           <a href="{site}" style="display:block;background:#8aa07a;color:#fffdf6;padding:14px;text-decoration:none;font-weight:800;font-size:15px;text-align:center;border-radius:12px">☀️ 주님과 마주 앉으러 가기</a>
         </div>
         <div style="background:#f6f1e7;padding:12px;text-align:center;font-size:11px;color:#b6a88f">
-          이 메일은 Come Away에 이메일을 등록한 분께 아침마다 보내드려요 🕊️
+          이 메일은 MOM 베이커리에 이메일을 등록한 분께 아침마다 보내드려요 🕊️
         </div>
       </div>
     </div>'''
@@ -49,7 +49,7 @@ def build_email(name, done_names, site):
 
 def send_email(to, subject, html):
     payload = json.dumps({
-        'from': os.environ.get('REMIND_FROM', 'Come Away <onboarding@resend.dev>'),
+        'from': os.environ.get('REMIND_FROM', 'MOM 베이커리 <onboarding@resend.dev>'),
         'to': [to],
         'subject': subject,
         'html': html
@@ -74,7 +74,7 @@ def send_push_to(names, title, body, site):
     subs = sb('GET', 'push_subscriptions?select=endpoint,name,sub') or []
     targets = [s for s in subs if s['name'] in names]
     sent = 0
-    claims = {'sub': 'mailto:' + os.environ.get('VAPID_SUBJECT', 'admin@come-away.app')}
+    claims = {'sub': 'mailto:' + os.environ.get('VAPID_SUBJECT', 'admin@mombakery.app')}
     payload = json.dumps({'title': title, 'body': body, 'url': site})
     for s in targets:
         try:
