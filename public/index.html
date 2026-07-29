@@ -488,7 +488,7 @@ textarea:focus{border-color:var(--green)}
 <!-- 단어 시험 모달 -->
 <div class="modal-backdrop" id="quiz-modal" onclick="if(event.target===this)closeQuiz()">
   <div class="modal">
-    <div class="modal-title">📝 &nbsp;단어 시험 <span style="font-family:'Gowun Dodum';font-size:14.4px" id="quiz-count"></span></div>
+    <div class="modal-title">✏️ &nbsp;단어 시험 <span style="font-family:'Gowun Dodum';font-size:14.4px" id="quiz-count"></span></div>
     <div id="quiz-body"></div>
     <div class="modal-actions">
       <button class="modal-cancel" style="flex:1" onclick="closeQuiz()">닫기</button>
@@ -645,7 +645,7 @@ textarea:focus{border-color:var(--green)}
     <div class="quiz-sum" id="quiz-sum"></div>
     <div class="vocab-chips" id="vocab-chips"></div>
     <button class="flash-btn" id="flash-open" style="display:none" onclick="openFlash()">🃏 플래시카드 복습</button>
-    <button class="flash-btn" id="quiz-open" style="display:none;background:var(--honey);box-shadow:0 3px 0 var(--honey-d)" onclick="openQuiz()">📝 단어 시험 보기</button>
+    <button class="flash-btn" id="quiz-open" style="display:none;background:var(--terra);box-shadow:0 3px 0 var(--terra-d)" onclick="openQuiz()">✏️ 단어 시험 보기</button>
   </div>
   <div class="card">
     <div class="card-title">🗓️ 월별 기록</div>
@@ -1582,8 +1582,8 @@ function renderVocab() {
   const sum = document.getElementById('quiz-sum');
   sum.innerHTML = total
     ? (tested
-        ? `📝 시험 본 단어 <b>${tested}개</b> / ${total}개 · 맞힌 단어 <b>${right}개</b> &nbsp;<span style="color:#b6a88f">(✅ 맞힘 · 🔁 다시 볼 단어)</span>`
-        : `📝 아직 시험을 본 단어가 없어요. 아래 버튼으로 가볍게 한 번 확인해 볼까요?`)
+        ? `✏️ 시험 본 단어 <b>${tested}개</b> / ${total}개 · 맞힌 단어 <b>${right}개</b> &nbsp;<span style="color:#b6a88f">(✅ 맞힘 · 🔁 다시 볼 단어)</span>`
+        : `✏️ 아직 시험을 본 단어가 없어요. 아래 버튼으로 가볍게 한 번 확인해 볼까요?`)
     : '';
   document.getElementById('vocab-chips').innerHTML = groups.length
     ? groups.map(g=>`<div class="vocab-group">
@@ -1743,7 +1743,7 @@ function renderQuizDone() {
       <div class="quiz-msg">${msg}</div>
       ${qzWrong.length?`<div class="quiz-wrong"><b>다시 볼 단어</b><br>${qzWrong.map(w=>`· ${esc(w.word)}${w.ko?` — ${esc(w.ko)}`:''}`).join('<br>')}</div>`:''}
       <button class="flash-btn" onclick="openQuiz()">🔁 한 번 더 풀기</button>
-      <button class="flash-btn" style="background:var(--terra);box-shadow:0 3px 0 var(--terra-d)" onclick="closeQuiz();openFlash()">🃏 플래시카드로 복습</button>
+      <button class="flash-btn" onclick="closeQuiz();openFlash()">🃏 플래시카드로 복습</button>
     </div>`;
   saveQuizResults();
 }
