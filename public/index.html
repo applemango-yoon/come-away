@@ -118,6 +118,17 @@ textarea:focus{border-color:var(--green)}
 .orig-word{font-size:calc(19px * var(--fs));font-weight:700;color:var(--terra-d);margin-bottom:2px}
 .orig-word span{font-size:calc(12px * var(--fs));color:var(--ink2);font-weight:400;margin-left:8px}
 .orig-mean{font-size:calc(14px * var(--fs));color:var(--ink2);line-height:1.8}
+.orig-nuance{font-size:calc(13.5px * var(--fs));color:var(--ink);line-height:1.85;margin-top:9px;padding-top:9px;border-top:1px dashed var(--line)}
+.orig-nuance b{color:var(--terra-d);font-family:'Jua',sans-serif;font-weight:400;margin-right:5px}
+.orig-refs{margin-top:10px;background:var(--cream);border:1.5px solid var(--line-l);border-radius:10px;padding:10px 12px}
+.orig-refs-t{font-size:calc(11.5px * var(--fs));color:var(--green-d);font-weight:700;margin-bottom:7px}
+.orig-ref{margin-bottom:8px}
+.orig-ref:last-child{margin-bottom:0}
+.orig-ref-h{font-size:calc(12.5px * var(--fs));color:var(--ink);line-height:1.65}
+.orig-ref-h b{color:var(--terra-d);white-space:nowrap}
+.orig-ref-h span{color:var(--ink2)}
+.orig-ref-n{font-size:calc(12px * var(--fs));color:var(--ink2);line-height:1.7;margin-top:2px;padding-left:9px;border-left:2px solid var(--terra-l)}
+.orig-point{font-size:calc(13px * var(--fs));color:var(--ink);line-height:1.8;margin-top:9px;background:var(--honey-l);border-radius:9px;padding:8px 11px}
 .orig-src{font-size:calc(11px * var(--fs));color:var(--green-d);margin-top:8px;padding-top:7px;border-top:1px dashed var(--line-l)}
 .orig-src a{color:var(--terra-d);font-weight:700;text-decoration:none;border-bottom:1px solid var(--terra-l)}
 .orig-src a:hover{border-bottom-color:var(--terra)}
@@ -1086,9 +1097,22 @@ function render(data) {
     o = o || {};
     const lang = /^\s*h/i.test(String(o.strong||'')) ? 'he-IL' : 'el-GR';   // H=히브리어, G=헬라어
     const spk = o.original ? `<button class="tts-btn" title="원어로 듣기" onclick="speak('${jsq(o.original)}','${lang}')">🔊</button>` : '';
+    const refs = Array.isArray(o.refs) ? o.refs.filter(r => r && (r.ref || r.phrase)) : [];
+    const refHtml = refs.length ? `<div class="orig-refs">
+        <div class="orig-refs-t">📖 다른 본문에서는 이렇게 쓰여요</div>
+        ${refs.map(r => `<div class="orig-ref">
+          <div class="orig-ref-h"><b>${esc(r.ref||'')}</b>${r.phrase?` <span>“${esc(r.phrase)}”</span>`:''}</div>
+          ${r.note?`<div class="orig-ref-n">→ ${esc(r.note)}</div>`:''}
+        </div>`).join('')}
+      </div>` : '';
+    const nuance = o.nuance ? `<div class="orig-nuance"><b>결·뉘앙스</b> ${esc(o.nuance)}</div>` : '';
+    const point = o.point ? `<div class="orig-point">💡 ${esc(o.point)}</div>` : '';
     return `<div class="orig-card">
       <div class="orig-word">${esc(o.original||'')}${spk}<span>${esc(o.reading||'')}${o.korean?' · '+esc(o.korean):''}</span></div>
       <div class="orig-mean">${esc(o.meaning||'')}</div>
+      ${nuance}
+      ${refHtml}
+      ${point}
       ${strongLinks(o.strong)}
     </div>`;
   }).join('') || '<div class="empty" style="padding:20px">원어 정보가 없어요.</div>';
@@ -2035,6 +2059,12 @@ function copyAnalysis() {
     md += `## 원어 포인트\n`;
     d.originals.forEach(o => {
       md += `- **${o.original} (${o.reading||''})** ${o.korean||''} — ${o.meaning||''}\n`;
+      if(o.nuance) md += `  - 결·뉘앙스: ${o.nuance}\n`;
+      (Array.isArray(o.refs)?o.refs:[]).forEach(r => {
+        if(!r) return;
+        md += `  - ${r.ref||''}${r.phrase?` "${r.phrase}"`:''}${r.note?` → ${r.note}`:''}\n`;
+      });
+      if(o.point) md += `  - 💡 ${o.point}\n`;
     });
     md += `\n`;
   }
