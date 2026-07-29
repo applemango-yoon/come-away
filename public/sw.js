@@ -1,5 +1,5 @@
-// Come Away 서비스워커 — 정적 파일만 캐시, API는 항상 네트워크
-const CACHE = 'come-away-v1';
+// MOM 베이커리 서비스워커 — 정적 파일만 캐시, API는 항상 네트워크
+const CACHE = 'mom-bakery-v2';
 self.addEventListener('install', e => self.skipWaiting());
 self.addEventListener('activate', e => e.waitUntil(clients.claim()));
 self.addEventListener('fetch', e => {
@@ -18,7 +18,7 @@ self.addEventListener('fetch', e => {
 self.addEventListener('push', e => {
   let data = {};
   try { data = e.data.json(); } catch(_) { data = { body: e.data ? e.data.text() : '' }; }
-  e.waitUntil(self.registration.showNotification(data.title || '🍞 Come Away', {
+  e.waitUntil(self.registration.showNotification(data.title || '🥐 MOM 베이커리', {
     body: data.body || '오늘의 묵상 시간이에요',
     icon: '/icon-192.png',
     badge: '/icon-192.png',

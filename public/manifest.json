@@ -1,11 +1,11 @@
 {
-  "name": "Come Away — 함께하는 아침 묵상",
-  "short_name": "Come Away",
-  "description": "AI 성경 분석과 함께하는 아침 묵상. 멤버들과 기록을 나누고 서로의 스트릭을 응원하세요.",
+  "name": "MOM 베이커리 — 따뜻한 말씀빵을 굽는 아침",
+  "short_name": "MOM 베이커리",
+  "description": "AI가 성경 본문의 번역본 비교·핵심 단어·원어 포인트를 정리해주는 아침 묵상 상점. 멤버들과 묵상을 나누고 물고기와 병을 주고받으세요.",
   "start_url": "/",
   "display": "standalone",
-  "background_color": "#f2ede1",
-  "theme_color": "#2d7ea6",
+  "background_color": "#f6f1e7",
+  "theme_color": "#8aa07a",
   "icons": [
     {"src": "/icon-192.png", "sizes": "192x192", "type": "image/png"},
     {"src": "/icon-512.png", "sizes": "512x512", "type": "image/png"}

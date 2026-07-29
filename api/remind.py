@@ -106,7 +106,7 @@ class handler(BaseHTTPRequestHandler):
                 return
 
             today = datetime.now(KST).strftime('%Y-%m-%d')
-            site = os.environ.get('SITE_URL', 'https://come-away-xi.vercel.app')
+            site = os.environ.get('SITE_URL', 'https://mombakery.vercel.app')
 
             members = sb('GET', 'members?select=name,email') or []
             done_rows = sb('GET', f'entries?select=author&date=eq.{urllib.parse.quote(today)}') or []

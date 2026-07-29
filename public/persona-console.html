@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>페르소나 & 가치관 콘솔 — Come Away</title>
+<title>페르소나 & 가치관 콘솔 — MOM 베이커리</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Jua&family=Gowun+Dodum&display=swap" rel="stylesheet">
 <style>
@@ -171,7 +171,7 @@ function setChoice(i, choice, el){
 function val(id){ return document.getElementById(id).value.trim(); }
 function exportSpec(){
   const values = [val('v1'),val('v2'),val('v3')].filter(Boolean).join(' · ') || '(미작성)';
-  let s = `[ Come Away — 나의 페르소나 & 가치관 ]\n\n`;
+  let s = `[ MOM 베이커리 — 나의 페르소나 & 가치관 ]\n\n`;
   s += `한 줄 소개: ${val('intro')||'(미작성)'}\n`;
   s += `핵심 가치: ${values}\n`;
   s += `앵커 구절: ${val('verse')||'(미작성)'}\n`;
