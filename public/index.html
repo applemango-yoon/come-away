@@ -1069,7 +1069,10 @@ let lastTrans = null;
 let lastAnalysis = null;
 function speakTrans(key) {
   if(!lastTrans || !lastTrans[key]) return;
-  speak(lastTrans[key], 'en-US');
+  // 절 번호와 태그는 읽지 않도록 걷어내고 본문만 읽어 준다
+  const plain = String(lastTrans[key]).replace(/<sup[^>]*>\d+<\/sup>/g, ' ').replace(/<[^>]*>/g, '')
+                  .replace(/&lt;/g,'<').replace(/&gt;/g,'>').replace(/&amp;/g,'&');
+  speak(plain, 'en-US');
 }
 /* onclick 속성용 문자열 이스케이프 */
 function jsq(s){ return String(s==null?'':s).replace(/\\/g,'\\\\').replace(/'/g,"\\'"); }
@@ -2052,7 +2055,8 @@ async function copyText(text, okMsg) {
 }
 function stripHl(t) {
   // <span class="hl">X</span> → **X** (노션에서 굵게로 표현), 나머지 태그 제거
-  return String(t||'').replace(/<span class="hl">(.*?)<\/span>/g, '**$1**').replace(/<[^>]*>/g, '');
+  return String(t||'').replace(/<sup class="vn">(\d+)<\/sup>\s*/g, '**$1** ')
+                      .replace(/<span class="hl">(.*?)<\/span>/g, '**$1**').replace(/<[^>]*>/g, '');
 }
 function entryMarkdown(e) {
   let md = `## 📖 ${e.passage || '묵상'}\n_${e.date} · ${e.author||'익명'}_\n\n${e.summary||''}\n`;

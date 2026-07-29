@@ -402,9 +402,14 @@ def _vnum(x):
     return int(s) if s else None
 
 
+def _esc(s):
+    """화면에 그대로 넣을 본문이므로 HTML 특수문자를 막아 둔다."""
+    return (str(s or '').replace('&', '&amp;').replace('<', '&lt;').replace('>', '&gt;'))
+
+
 def assemble(data):
     """AI가 준 verses(절별 배열) → 화면용 translations.
-    절 번호를 [Vn] 마커로 심어서 표시하고, 검증에도 쓴다."""
+    절 번호를 윗첨자로 붙여 그대로 이어 붙인다 (하이라이트 없음, 본문 그대로)."""
     vs = (data or {}).get('verses')
     if not isinstance(vs, list) or not vs:
         return None
@@ -425,7 +430,7 @@ def assemble(data):
     rows.sort(key=lambda r: r['n'])
     tr = {}
     for k in TR_KEYS:
-        parts = ['[V%d] %s' % (r['n'], r[k]) for r in rows if r[k]]
+        parts = ['<sup class="vn">%d</sup>%s' % (r['n'], _esc(r[k])) for r in rows if r[k]]
         if parts:
             tr[k] = ' '.join(parts)
     return {'rows': rows, 'translations': tr} if tr else None
@@ -530,30 +535,10 @@ PROMPT = '''성경 본문 "{passage}"를 분석해서 아래 JSON 형식으로�
 - 인접한 장(예: 4장을 요청했는데 3장 내용)을 쓰는 것은 절대 금지다. 이 도구는 성경 공부용이라 본문이 틀리면 아무 의미가 없다.
 - NKJV와 NASB는 **현대 영어 번역본**이다. KJV의 옛 문체(passeth, cometh, ye, thou, thy, thee, unto, hath, doth, saith, hither)를 쓰면 안 된다.
   NKJV는 "Then Joshua said to the children of Israel, 'Come here...'"처럼, NASB는 "Then Joshua said to the sons of Israel, 'Come here...'"처럼 현대 영어로 적어라.
+- ★위에 주어진 KJV 본문은 '절 번호와 내용을 맞추기 위한 대조표'일 뿐이다. 문장을 그대로 옮겨 적지 마라.★
+  (예: KJV "What mean ye by these stones?" → NKJV는 "What do these stones mean to you?", NASB는 "What do these stones mean to you?"로 적어야 한다.
+   "What mean you by these stones"처럼 KJV 어순을 살짝 고쳐 쓴 것은 NKJV가 아니다.)
 - 개역개정과 새번역도 각각 실제 그 번역본의 문장이어야 한다. 한쪽을 베껴 쓰지 마라.
-
-■ 비교 규칙 — 가장 중요. "짝(pair)"으로만 생각하라:
-하이라이트의 목적은 "같은 뜻인데 번역본마다 '다른 낱말'을 골라서, 그 차이가 뉘앙스·이해에 도움이 되는 자리"를 보여주는 것이다.
-그래서 결과는 반드시 **두 번역본의 표현이 한 쌍**으로 나와야 한다. 한쪽만 있는 하이라이트는 존재할 수 없다.
-
-짝으로 뽑아야 하는 것 (O):
-- 서로 다른 낱말을 골랐고, 그 차이에서 배울 게 있는 자리.
-- 예: 독생자 ↔ 외아들 / 멸망하지 않고 ↔ 죽지 않고 / 영생 ↔ 영원한 생명
-- 예(영어): everlasting ↔ eternal / want ↔ lack / still ↔ quiet / leads ↔ guides
-
-절대 뽑으면 안 되는 것 (X):
-1) 두 번역이 글자 그대로 똑같은 표현. (예: 둘 다 "only begotten Son", 둘 다 "perish", 둘 다 "so loved")
-2) 같은 낱말을 문체·어미만 바꿔 쓴 것. ★이것이 가장 흔한 실수다★
-   예: "내게 부족함이 없으리로다" ↔ "나는 부족한 것이 없습니다" → 둘 다 '부족'+'없다'라는 같은 낱말이다. 문어체/구어체 차이일 뿐이므로 뽑지 마라.
-   조사·어미(~은/는, ~이/가, ~하시는도다/~하십니다), 어순, 띄어쓰기, 문장부호 차이도 마찬가지로 뽑지 마라.
-3) 뜻도 어감도 완전히 같은 단순 동의어 — 배울 게 없는 자리.
-   예: "소생시키시고" ↔ "되살리시고" → 그냥 같은 말이다. 뽑지 마라.
-4) 한국어와 영어를 서로 대응시키는 것. 한국어는 개역개정↔새번역끼리만, 영어는 NKJV↔NASB끼리만 비교한다.
-
-판단 기준 한 줄: "이 두 표현의 차이를 알면 본문을 더 깊이 이해하게 되는가?"
-단, 한국어(개역개정↔새번역)에서만 위 X 규칙을 엄격히 적용하라. 영어(NKJV↔NASB)는 두 본문의 낱말이 조금이라도 다르면 전부 뽑아라 — 시제·조동사·추가된 말도 모두 공부거리다.
-영어 예시(모두 O): spoke ↔ said / will cross over ↔ are to cross / the camp ↔ the midst of the camp / is giving you ↔ will give you / half the tribe ↔ half-tribe
-빠뜨리지 말고 다 찾아라. 본문에 다른 자리가 많으면 10쌍 이상이어도 괜찮다.
 
 {{
   "verses": [
@@ -565,10 +550,6 @@ PROMPT = '''성경 본문 "{passage}"를 분석해서 아래 JSON 형식으로�
       "NASB": "that verse only, NASB (modern English)"
     }}
   ],
-  "diffs": {{
-    "ko": [ {{"개역개정": "독생자", "새번역": "외아들"}} ],
-    "en": [ {{"NKJV": "want", "NASB": "lack"}} ]
-  }},
   "words": [
     {{
       "english": "본문에 나오는 '영어 단어 하나' 또는 '굳어진 표현/숙어'. 문장·해석 금지 (예: eternal, everlasting, perish, begotten, so, lay down).",
@@ -618,11 +599,9 @@ originals 규칙 (★영어단어 외우듯 '단어=뜻'으로 끝내지 마라.
 - refs의 phrase는 그 구절에 실제로 있는 어구를 적어라. note는 그 장면이 이 단어의 어떤 면(강도·방식·구별의 성격)을 보여 주는지 한 문장으로 적어라. 구절 요약이 아니라 '단어 해설'이어야 한다.
 - 세 원어의 refs가 서로 겹치지 않게 하라. 확실하지 않은 장절은 넣지 말고 확실한 것만 넣어라 (틀린 장절은 최악이다).
 - point는 이 본문으로 돌아와서, 그 뉘앙스를 알고 읽으면 문장이 어떻게 달라지는지 한 문장.
-diffs 규칙 (다시 강조):
-- diffs.ko의 각 항목은 반드시 "개역개정"과 "새번역" 두 키를 모두 가져야 하고, 두 값은 서로 달라야 한다.
-- diffs.en의 각 항목은 반드시 "NKJV"와 "NASB" 두 키를 모두 가져야 하고, 두 값은 서로 달라야 한다.
-- 각 값은 해당 번역본 본문에 "글자 그대로 들어 있는" 짧은 표현이어야 한다 (본문에서 그대로 잘라낸 조각). 문장 전체를 넣지 마라.
-- translations 본문에는 아무 표시도 하지 마라. 하이라이트는 diffs만 보고 만든다.
+verses 규칙:
+- 절 본문에는 아무 표시(별표·괄호·하이라이트)도 붙이지 마라. 그 번역본의 문장을 있는 그대로만 적어라.
+- 절 번호는 "n"에만 숫자로 적고, 본문 문자열 안에는 절 번호를 쓰지 마라.
 추측하지 말고 확실한 것만. JSON만 출력.'''
 
 
@@ -651,7 +630,7 @@ DEFINE_PROMPT = '''아래 영어 단어들의 "영어사전 뜻"을 알려줘. �
 JSON만 출력.'''
 
 
-SCHEMA_VER = 14  # 분석 결과 형식 버전. 올리면 이전 캐시를 자동으로 무시하고 다시 분석함.
+SCHEMA_VER = 15  # 분석 결과 형식 버전. 올리면 이전 캐시를 자동으로 무시하고 다시 분석함.
 
 
 def _valid(d):
@@ -828,16 +807,8 @@ class handler(BaseHTTPRequestHandler):
             if isinstance(data.get('words'), list):
                 data['words'] = data['words'][:12]
 
-            # 하이라이트는 '짝(diffs)' 정보로 서버가 직접 만든다 → 항상 양쪽에 함께, 같은 표현은 제외
-            if isinstance(data.get('translations'), dict):
-                build_highlights(data['translations'], data.get('diffs'))
-                data.pop('diffs', None)
-
-            for k in list(data.get('translations', {}).keys()):
-                v = data['translations'][k]
-                if isinstance(v, str):
-                    data['translations'][k] = mark_highlights(v)
-
+            # 하이라이트는 하지 않는다. 번역본 비교 칸은 '본문 그대로'만 정확히 보여 준다.
+            data.pop('diffs', None)
             data.pop('verses', None)        # 조립이 끝났으면 원본 절 배열은 보낼 필요 없다
             data.pop('verses_rows', None)
             data['v'] = SCHEMA_VER   # 형식 버전 기록 (옛 캐시 자동 무효화용)
