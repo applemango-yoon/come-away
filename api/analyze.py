@@ -241,6 +241,188 @@ def normalize_key(passage):
     return re.sub(r'\s+', '', passage.strip().lower())
 
 
+# ── 📖 실제 성경 본문 앵커 ───────────────────────────────────────────────
+# AI 모델은 장절을 헷갈려 '다른 본문'을 그럴듯하게 지어낼 수 있다(할루시네이션).
+# 성경 공부 도구에서 이건 치명적이므로, 공개 도메인 KJV 본문을 실제로 가져와
+# 프롬프트에 '정답 본문'으로 박아 넣고, 결과가 그 본문과 맞는지 검증한다.
+
+KO_BOOKS = {
+    '창세기': 'genesis', '창': 'genesis',
+    '출애굽기': 'exodus', '출': 'exodus',
+    '레위기': 'leviticus', '레': 'leviticus',
+    '민수기': 'numbers', '민': 'numbers',
+    '신명기': 'deuteronomy', '신': 'deuteronomy',
+    '여호수아': 'joshua', '수': 'joshua',
+    '사사기': 'judges', '삿': 'judges',
+    '룻기': 'ruth', '룻': 'ruth',
+    '사무엘상': '1 samuel', '삼상': '1 samuel',
+    '사무엘하': '2 samuel', '삼하': '2 samuel',
+    '열왕기상': '1 kings', '왕상': '1 kings',
+    '열왕기하': '2 kings', '왕하': '2 kings',
+    '역대상': '1 chronicles', '대상': '1 chronicles',
+    '역대하': '2 chronicles', '대하': '2 chronicles',
+    '에스라': 'ezra', '스': 'ezra',
+    '느헤미야': 'nehemiah', '느': 'nehemiah',
+    '에스더': 'esther', '에': 'esther',
+    '욥기': 'job', '욥': 'job',
+    '시편': 'psalms', '시': 'psalms',
+    '잠언': 'proverbs', '잠': 'proverbs',
+    '전도서': 'ecclesiastes', '전': 'ecclesiastes',
+    '아가': 'song of solomon', '아': 'song of solomon',
+    '이사야': 'isaiah', '사': 'isaiah',
+    '예레미야애가': 'lamentations', '애가': 'lamentations', '애': 'lamentations',
+    '예레미야': 'jeremiah', '렘': 'jeremiah',
+    '에스겔': 'ezekiel', '겔': 'ezekiel',
+    '다니엘': 'daniel', '단': 'daniel',
+    '호세아': 'hosea', '호': 'hosea',
+    '요엘': 'joel', '욜': 'joel',
+    '아모스': 'amos', '암': 'amos',
+    '오바댜': 'obadiah', '옵': 'obadiah',
+    '요나': 'jonah', '욘': 'jonah',
+    '미가': 'micah', '미': 'micah',
+    '나훔': 'nahum', '나': 'nahum',
+    '하박국': 'habakkuk', '합': 'habakkuk',
+    '스바냐': 'zephaniah', '습': 'zephaniah',
+    '학개': 'haggai', '학': 'haggai',
+    '스가랴': 'zechariah', '슥': 'zechariah',
+    '말라기': 'malachi', '말': 'malachi',
+    '마태복음': 'matthew', '마태': 'matthew', '마': 'matthew',
+    '마가복음': 'mark', '마가': 'mark', '막': 'mark',
+    '누가복음': 'luke', '누가': 'luke', '눅': 'luke',
+    '요한복음': 'john', '요한': 'john', '요': 'john',
+    '사도행전': 'acts', '행': 'acts',
+    '로마서': 'romans', '롬': 'romans',
+    '고린도전서': '1 corinthians', '고전': '1 corinthians',
+    '고린도후서': '2 corinthians', '고후': '2 corinthians',
+    '갈라디아서': 'galatians', '갈': 'galatians',
+    '에베소서': 'ephesians', '엡': 'ephesians',
+    '빌립보서': 'philippians', '빌': 'philippians',
+    '골로새서': 'colossians', '골': 'colossians',
+    '데살로니가전서': '1 thessalonians', '살전': '1 thessalonians',
+    '데살로니가후서': '2 thessalonians', '살후': '2 thessalonians',
+    '디모데전서': '1 timothy', '딤전': '1 timothy',
+    '디모데후서': '2 timothy', '딤후': '2 timothy',
+    '디도서': 'titus', '딛': 'titus',
+    '빌레몬서': 'philemon', '몬': 'philemon',
+    '히브리서': 'hebrews', '히': 'hebrews',
+    '야고보서': 'james', '약': 'james',
+    '베드로전서': '1 peter', '벧전': '1 peter',
+    '베드로후서': '2 peter', '벧후': '2 peter',
+    '요한일서': '1 john', '요일': '1 john',
+    '요한이서': '2 john', '요이': '2 john',
+    '요한삼서': '3 john', '요삼': '3 john',
+    '유다서': 'jude', '유': 'jude',
+    '요한계시록': 'revelation', '계시록': 'revelation', '계': 'revelation',
+}
+# 긴 이름부터 매칭해야 '요한복음'이 '요'로 잘리지 않는다.
+_BOOK_KEYS = sorted(KO_BOOKS.keys(), key=len, reverse=True)
+
+
+def parse_ref(passage):
+    """'여호수아 4:6-7', '수 4:6~7', '요한복음 3장 16절' → ('joshua', 4, 6, 7).
+    해석 못 하면 None."""
+    s = re.sub(r'\s+', '', str(passage or '')).replace('～', '-').replace('~', '-').replace('–', '-')
+    book = None
+    for k in _BOOK_KEYS:
+        if s.startswith(k):
+            book = KO_BOOKS[k]
+            s = s[len(k):]
+            break
+    if not book:
+        m = re.match(r'^([1-3]?[a-zA-Z\s]+)', str(passage or '').strip())
+        if not m:
+            return None
+        book = m.group(1).strip().lower()
+        s = re.sub(r'\s+', '', str(passage or '').strip()[m.end():])
+    s = s.replace('장', ':').replace('절', '').lstrip(':')
+    m = re.match(r'^(\d+)[:.](\d+)(?:-(\d+))?', s)
+    if m:
+        c, v1 = int(m.group(1)), int(m.group(2))
+        return (book, c, v1, int(m.group(3)) if m.group(3) else v1)
+    m = re.match(r'^(\d+)$', s)
+    if m:
+        return (book, int(m.group(1)), None, None)   # 장 전체
+    return None
+
+
+def fetch_anchor(passage):
+    """공개 도메인 KJV 본문을 실제로 가져온다. 실패하면 None (분석은 계속 진행)."""
+    ref = parse_ref(passage)
+    if not ref:
+        return None
+    book, ch, v1, v2 = ref
+    q = '%s %d' % (book, ch)
+    if v1:
+        q += ':%d' % v1
+        if v2 and v2 != v1:
+            q += '-%d' % v2
+    url = 'https://bible-api.com/' + urllib.parse.quote(q) + '?translation=kjv'
+    try:
+        req = urllib.request.Request(url, headers={'User-Agent': 'come-away/1.0'})
+        with urllib.request.urlopen(req, timeout=10) as r:
+            d = json.loads(r.read())
+    except Exception:
+        return None
+    verses = d.get('verses') or []
+    if not verses:
+        return None
+    lines = []
+    for v in verses[:60]:
+        t = re.sub(r'\s+', ' ', str(v.get('text') or '')).strip()
+        if t:
+            lines.append('%d. %s' % (v.get('verse') or 0, t))
+    if not lines:
+        return None
+    return {'ref': d.get('reference') or q,
+            'lines': lines,
+            'text': ' '.join(lines),
+            'nums': [v.get('verse') for v in verses if v.get('verse')]}
+
+
+_STOP_EN = set('''the a an and or of to in is are was were be been that this these those
+for with from by on at as it its he she they them his her their you your ye thou thy thee
+shall will not but so which who whom what when then there here up out over into unto
+'''.split())
+
+
+def _content_words(s):
+    w = re.findall(r'[a-z]+', str(s or '').lower())
+    return set(x for x in w if len(x) > 2 and x not in _STOP_EN)
+
+
+def anchor_match(data, anchor):
+    """AI가 돌려준 영어 본문이 '진짜 그 본문'인지 KJV 앵커와 낱말 겹침으로 검증.
+    같은 절의 다른 번역본이면 내용어가 크게 겹친다. 다른 장·절이면 거의 안 겹친다."""
+    if not anchor:
+        return True
+    base = _content_words(anchor['text'])
+    if len(base) < 5:
+        return True
+    tr = (data or {}).get('translations') or {}
+    best = 0.0
+    for k in ('NKJV', 'NASB'):
+        got = _content_words(tr.get(k))
+        if not got:
+            continue
+        cover = len(base & got) / float(len(base))
+        best = max(best, cover)
+    return best >= 0.45
+
+
+_ARCHAIC = re.compile(r'\b(ye|thou|thy|thee|hath|doth|saith|hither|unto|'
+                      r'\w+eth)\b', re.I)
+
+
+def archaic_bad(data):
+    """NKJV/NASB 자리에 KJV 옛 문체가 들어왔는지. (현대 번역본인데 KJV를 베낀 경우)"""
+    tr = (data or {}).get('translations') or {}
+    for k in ('NKJV', 'NASB'):
+        s = _plain(str(tr.get(k) or ''))
+        if len(_ARCHAIC.findall(s)) >= 3:
+            return True
+    return False
+
+
 def providers():
     """시도할 AI 공급자 목록(우선순위 순). 하나가 실패하면 다음 것을 시도한다.
     Anthropic(클로드)을 먼저 두는 이유: Groq은 클라우드/지역 차단으로 403이 날 수 있고,
@@ -286,6 +468,13 @@ def providers():
 PROMPT = '''성경 본문 "{passage}"를 분석해서 아래 JSON 형식으로만 응답해줘. 코드블록 없이 JSON만.
 
 본문이 여러 절 범위(예: 시편 23:1-3)라면 그 범위의 모든 절을 포함해서 분석해줘.
+{anchor}
+■ 본문 정확성 — 다른 무엇보다 먼저 지켜야 할 규칙:
+- 요청받은 장·절의 내용을 정확히 다뤄야 한다. 기억이 흐릿하면 지어내지 말고, 위에 주어진 실제 본문을 그대로 근거로 삼아라.
+- 인접한 장(예: 4장을 요청했는데 3장 내용)을 쓰는 것은 절대 금지다. 이 도구는 성경 공부용이라 본문이 틀리면 아무 의미가 없다.
+- NKJV와 NASB는 **현대 영어 번역본**이다. KJV의 옛 문체(passeth, cometh, ye, thou, thy, thee, unto, hath, doth, saith, hither)를 쓰면 안 된다.
+  NKJV는 "Then Joshua said to the children of Israel, 'Come here...'"처럼, NASB는 "Then Joshua said to the sons of Israel, 'Come here...'"처럼 현대 영어로 적어라.
+- 개역개정과 새번역도 각각 실제 그 번역본의 문장이어야 한다. 한쪽을 베껴 쓰지 마라.
 
 ■ 비교 규칙 — 가장 중요. "짝(pair)"으로만 생각하라:
 하이라이트의 목적은 "같은 뜻인데 번역본마다 '다른 낱말'을 골라서, 그 차이가 뉘앙스·이해에 도움이 되는 자리"를 보여주는 것이다.
@@ -403,7 +592,7 @@ DEFINE_PROMPT = '''아래 영어 단어들의 "영어사전 뜻"을 알려줘. �
 JSON만 출력.'''
 
 
-SCHEMA_VER = 12  # 분석 결과 형식 버전. 올리면 이전 캐시를 자동으로 무시하고 다시 분석함.
+SCHEMA_VER = 13  # 분석 결과 형식 버전. 올리면 이전 캐시를 자동으로 무시하고 다시 분석함.
 
 
 def _valid(d):
@@ -442,8 +631,18 @@ def _post_json(url, headers, payload):
         raise RuntimeError('HTTP %s %s' % (e.code, detail))
 
 
-def call_ai(passage, strict=False):
-    return call_ai_raw(PROMPT.format(passage=passage), strict)
+def anchor_block(anchor):
+    """프롬프트에 끼워 넣을 '정답 본문' 블록."""
+    if not anchor:
+        return ''
+    return ('\n■ 이 본문의 실제 내용 (KJV, 공개 도메인 — 반드시 이 내용을 다뤄라):\n'
+            '[' + anchor['ref'] + ']\n' + '\n'.join(anchor['lines']) +
+            '\n위 절 번호와 내용이 정답이다. 다른 장·절의 내용을 쓰면 오답이다.\n'
+            '단, 위 KJV 문장을 그대로 베끼지는 마라 — NKJV·NASB는 각자의 현대 영어 문장으로 적어야 한다.\n')
+
+
+def call_ai(passage, strict=False, anchor=None):
+    return call_ai_raw(PROMPT.format(passage=passage, anchor=anchor_block(anchor)), strict)
 
 
 def call_ai_raw(content, strict=False):
@@ -516,18 +715,37 @@ class handler(BaseHTTPRequestHandler):
                 self._send_json(data)
                 return
 
+            # 1-b. 실제 성경 본문(KJV, 공개 도메인)을 먼저 가져와 '정답'으로 삼는다.
+            #      AI가 장절을 헷갈려 엉뚱한 본문을 지어내는 것을 막기 위함.
+            anchor = fetch_anchor(passage)
+
             # 2. AI 호출 (JSON 파싱/형식 실패 시 strict 모드로 1회 재시도)
             try:
-                data = call_ai(passage)
+                data = call_ai(passage, anchor=anchor)
                 if not _valid(data):
-                    data = call_ai(passage, strict=True)
+                    data = call_ai(passage, strict=True, anchor=anchor)
             except (ValueError, json.JSONDecodeError):
-                data = call_ai(passage, strict=True)
+                data = call_ai(passage, strict=True, anchor=anchor)
 
             # 결과가 여전히 온전치 않으면 깨진 데이터를 저장/반환하지 않고 명확히 알린다.
             if not _valid(data):
                 self._send_json({'error': 'bad_ai',
                                  'message': '분석 결과를 온전히 받지 못했어요. 잠시 후 다시 시도해 주세요.'}, 502)
+                return
+
+            # 2-b. 본문 검증 — 엉뚱한 장·절이거나 NKJV/NASB 자리에 KJV 옛 문체가 오면 1회 재시도.
+            if (anchor and not anchor_match(data, anchor)) or archaic_bad(data):
+                try:
+                    retry = call_ai(passage, strict=True, anchor=anchor)
+                    if _valid(retry):
+                        data = retry
+                except (ValueError, json.JSONDecodeError):
+                    pass
+            # 재시도 후에도 '다른 본문'이면 틀린 말씀을 보여주느니 솔직히 알린다.
+            if anchor and not anchor_match(data, anchor):
+                self._send_json({'error': 'wrong_passage',
+                                 'message': '요청하신 본문과 다른 내용이 와서 표시하지 않았어요. '
+                                            '잠시 후 다시 시도해 주세요. (' + anchor['ref'] + ')'}, 502)
                 return
 
             # 단어는 최대 10개까지만 (AI가 더 줘도 잘라냄; 부족하면 있는 만큼)
