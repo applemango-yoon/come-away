@@ -1,4 +1,4 @@
 User-agent: *
 Allow: /
 
-Sitemap: https://mombakery.vercel.app/sitemap.xml
+Sitemap: https://come-away-xi.vercel.app/sitemap.xml
