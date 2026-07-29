@@ -83,11 +83,5 @@
       "src": "/(.*)",
       "dest": "/public/index.html"
     }
-  ],
-  "crons": [
-    {
-      "path": "/api/remind",
-      "schedule": "30 1 * * *"
-    }
   ]
 }
