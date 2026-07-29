@@ -768,10 +768,20 @@ class handler(BaseHTTPRequestHandler):
             key = normalize_key(passage)
             qkey = urllib.parse.quote(key)
 
-            # 1. 실제 성경 본문(KJV, 공개 도메인)을 먼저 가져와 '정답표'로 삼는다.
-            #    AI가 장절을 헷갈려 엉뚱한 본문을 지어내는 것을 막기 위함.
-            #    ※ 남이 검색해 둔 캐시 본문은 더 이상 그대로 쓰지 않는다.
-            #      한 번 잘못 저장된 본문이 계속 퍼지는 것을 막으려고, 요청할 때마다 새로 분석하고 검증한다.
+            # 1. 캐시 확인.
+            #    SCHEMA_VER 14부터는 '절 단위 검증을 통과한 결과'만 저장되므로, 저장된 것은
+            #    이미 절 번호·내용이 실제 본문과 대조된 것이다. 검증 안 된 옛 캐시는 v가 달라 자동으로 무시된다.
+            #    body에 fresh=true가 오면(‘다시 분석’ 버튼) 캐시를 건너뛰고 새로 분석한다.
+            cached = None if body.get('fresh') else \
+                sb('GET', 'analyses?passage_key=eq.' + qkey + '&select=data', silent=True)
+            if cached and _valid(cached[0].get('data')) and cached[0]['data'].get('v') == SCHEMA_VER:
+                data = cached[0]['data']
+                data['cached'] = True
+                self._send_json(data)
+                return
+
+            # 1-b. 실제 성경 본문(KJV, 공개 도메인)을 먼저 가져와 '정답표'로 삼는다.
+            #      AI가 장절을 헷갈려 엉뚱한 본문을 지어내는 것을 막기 위함.
             anchor = fetch_anchor(passage)
 
             def attempt(strict):
