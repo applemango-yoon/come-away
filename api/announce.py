@@ -224,6 +224,7 @@ class handler(BaseHTTPRequestHandler):
                         'nuance': str(v.get('nuance') or '')[:400],
                         'pos': str(v.get('pos') or '')[:20],
                         'passage': str(v.get('passage') or '')[:80],
+                        'quiz': str(v.get('quiz') or '')[:40],   # 단어 시험 기록 (예: 2026-07-29|o)
                     }
                 # 너무 커지지 않도록 최근 600개만 유지
                 if len(merged) > 600:

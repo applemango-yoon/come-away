@@ -201,6 +201,32 @@ textarea:focus{border-color:var(--green)}
 .vocab-row{display:flex;flex-wrap:wrap;gap:6px}
 .vocab-chip{background:white;border:2px solid var(--line-l);color:var(--ink2);padding:5px 13px;font-size:14.4px;font-weight:700;border-radius:999px}
 .flash-btn{width:100%;padding:12px;border:none;border-radius:12px;font-size:16.8px;cursor:pointer;margin-top:12px;font-family:'Jua',sans-serif;background:var(--green);color:white;box-shadow:0 3px 0 var(--green-d)}
+/* ── 단어 시험 ── */
+.quiz-sum{font-size:14.4px;color:var(--ink2);margin:2px 0 10px;line-height:1.7}
+.quiz-sum b{color:var(--green-d)}
+.vocab-chip .vq{margin-left:5px;font-size:13px}
+.quiz-prog{font-family:'Gowun Dodum',sans-serif;font-size:14.4px;color:#b6a88f;text-align:center;margin-bottom:8px}
+.quiz-bar{height:8px;background:var(--line-l);border-radius:999px;overflow:hidden;margin-bottom:16px}
+.quiz-bar i{display:block;height:100%;background:var(--honey);transition:width .25s}
+.quiz-q{background:var(--parch);border:2px dashed var(--line);border-radius:16px;padding:18px 16px;text-align:center;margin-bottom:14px}
+.quiz-q .ql{font-size:13.2px;color:#b6a88f;margin-bottom:6px}
+.quiz-q .qk{font-family:'Jua',sans-serif;font-size:22px;color:var(--terra-d);line-height:1.4}
+.quiz-q .qm{font-size:14.4px;color:var(--ink2);margin-top:7px;line-height:1.7}
+.quiz-opts{display:grid;gap:9px}
+.quiz-opt{background:white;border:2px solid var(--line);border-radius:12px;padding:12px 14px;font-family:'Gowun Dodum',sans-serif;
+  font-size:16.8px;font-weight:700;color:var(--ink);cursor:pointer;text-align:left;transition:.12s}
+.quiz-opt:hover{border-color:var(--green);background:var(--green-l)}
+.quiz-opt.ok{border-color:var(--green);background:var(--green-l);color:var(--green-d)}
+.quiz-opt.no{border-color:var(--terra);background:var(--terra-l);color:var(--terra-d)}
+.quiz-opt:disabled{cursor:default}
+.quiz-fb{text-align:center;font-family:'Jua',sans-serif;font-size:16.8px;margin-top:12px;min-height:24px}
+.quiz-fb.ok{color:var(--green-d)}
+.quiz-fb.no{color:var(--terra-d)}
+.quiz-done{text-align:center;padding:6px 0 2px}
+.quiz-score{font-family:'Jua',sans-serif;font-size:30px;color:var(--terra-d);margin:8px 0 4px}
+.quiz-msg{font-size:15.6px;color:var(--ink2);line-height:1.8;margin-bottom:12px}
+.quiz-wrong{background:var(--parch);border:2px solid var(--line);border-radius:14px;padding:12px 14px;text-align:left;font-size:14.4px;line-height:1.9}
+.quiz-wrong b{color:var(--terra-d)}
 .flash-btn:hover{background:var(--green-d)}
 .flash-card{background:white;border:3px solid var(--terra);border-radius:18px;min-height:180px;display:flex;flex-direction:column;align-items:center;justify-content:center;cursor:pointer;padding:20px;text-align:center;margin-bottom:14px}
 .flash-word{font-family:'Jua',sans-serif;font-size:31.2px;color:var(--ink)}
@@ -459,6 +485,17 @@ textarea:focus{border-color:var(--green)}
   </div>
 </div>
 
+<!-- 단어 시험 모달 -->
+<div class="modal-backdrop" id="quiz-modal" onclick="if(event.target===this)closeQuiz()">
+  <div class="modal">
+    <div class="modal-title">📝 &nbsp;단어 시험 <span style="font-family:'Gowun Dodum';font-size:14.4px" id="quiz-count"></span></div>
+    <div id="quiz-body"></div>
+    <div class="modal-actions">
+      <button class="modal-cancel" style="flex:1" onclick="closeQuiz()">닫기</button>
+    </div>
+  </div>
+</div>
+
 <!-- 편집 모달 -->
 <div class="modal-backdrop" id="edit-modal" onclick="if(event.target===this)closeEdit()">
   <div class="modal">
@@ -605,8 +642,10 @@ textarea:focus{border-color:var(--green)}
   </div>
   <div class="card">
     <div class="card-title">📇 내 단어장 <span style="font-family:'Gowun Dodum';font-size:14.4px" id="vocab-count"></span></div>
+    <div class="quiz-sum" id="quiz-sum"></div>
     <div class="vocab-chips" id="vocab-chips"></div>
     <button class="flash-btn" id="flash-open" style="display:none" onclick="openFlash()">🃏 플래시카드 복습</button>
+    <button class="flash-btn" id="quiz-open" style="display:none;background:var(--honey);box-shadow:0 3px 0 var(--honey-d)" onclick="openQuiz()">📝 단어 시험 보기</button>
   </div>
   <div class="card">
     <div class="card-title">🗓️ 월별 기록</div>
@@ -1525,17 +1564,39 @@ function myVocabGroups() {
   });
   return [...groups.values()].sort((a,b)=> a.date<b.date?1:-1);
 }
+function quizMark(word) {
+  const m = lookupMeaning(word);
+  const q = m && m.quiz ? String(m.quiz) : '';
+  if(!q) return null;
+  const [date, res] = q.split('|');
+  return {date: date||'', ok: res === 'o'};
+}
 function renderVocab() {
   const groups = myVocabGroups();
-  const total = myVocab().length;
+  const all = myVocab();
+  const total = all.length;
   document.getElementById('vocab-count').textContent = total ? `— ${total}개` : '';
+  // 시험 현황 요약
+  let tested = 0, right = 0;
+  all.forEach(v => { const q = quizMark(v.word); if(q){ tested++; if(q.ok) right++; } });
+  const sum = document.getElementById('quiz-sum');
+  sum.innerHTML = total
+    ? (tested
+        ? `📝 시험 본 단어 <b>${tested}개</b> / ${total}개 · 맞힌 단어 <b>${right}개</b> &nbsp;<span style="color:#b6a88f">(✅ 맞힘 · 🔁 다시 볼 단어)</span>`
+        : `📝 아직 시험을 본 단어가 없어요. 아래 버튼으로 가볍게 한 번 확인해 볼까요?`)
+    : '';
   document.getElementById('vocab-chips').innerHTML = groups.length
     ? groups.map(g=>`<div class="vocab-group">
         <div class="vocab-head">📖 ${esc(g.passage)}<span class="vh-date">${esc(g.date)}</span></div>
-        <div class="vocab-row">${g.words.map(w=>{const m=lookupMeaning(w);return `<span class="vocab-chip"${m&&m.ko?` title="${esc(m.ko)}"`:''}>${esc(w)}${m&&m.ko?` <b style="font-weight:400;color:#b6a88f">· ${esc(m.ko)}</b>`:''}</span>`;}).join('')}</div>
+        <div class="vocab-row">${g.words.map(w=>{
+          const m=lookupMeaning(w); const q=quizMark(w);
+          const badge = q ? `<span class="vq" title="${q.ok?'시험에서 맞힌 단어':'시험에서 틀린 단어 — 다시 복습해요'} (${esc(q.date)})">${q.ok?'✅':'🔁'}</span>` : '';
+          return `<span class="vocab-chip"${m&&m.ko?` title="${esc(m.ko)}"`:''}>${esc(w)}${m&&m.ko?` <b style="font-weight:400;color:#b6a88f">· ${esc(m.ko)}</b>`:''}${badge}</span>`;
+        }).join('')}</div>
       </div>`).join('')
     : '<span style="font-size:14.4px;color:#b6a88f">묵상을 기록하면 기억할 단어가 본문별로 여기에 쌓여요.</span>';
   document.getElementById('flash-open').style.display = total >= 3 ? '' : 'none';
+  document.getElementById('quiz-open').style.display = total >= 4 ? '' : 'none';
 }
 function openFlash() {
   fcList = myVocab();
@@ -1596,6 +1657,114 @@ function moveFlash(dir) {
 function shuffleFlash() {
   for(let i=fcList.length-1;i>0;i--){ const j=Math.floor(Math.random()*(i+1)); [fcList[i],fcList[j]]=[fcList[j],fcList[i]]; }
   fcIdx = 0; fcFlipped = false; renderFlash();
+}
+
+/* ── 📝 단어 시험 ── */
+let qzList = [], qzIdx = 0, qzScore = 0, qzWrong = [], qzLocked = false, qzResults = {};
+const QZ_MAX = 10;
+function openQuiz() {
+  const pool = myVocab().filter(v => { const m = v.meta || lookupMeaning(v.word); return m && (m.ko || m.meaning); });
+  if(pool.length < 4) { toast('시험을 보려면 뜻이 있는 단어가 4개 이상 필요해요. 플래시카드를 한 번 열어 주세요 🃏'); return; }
+  // 못 맞힌 단어·아직 안 본 단어를 먼저 낸다
+  pool.sort((a,b) => {
+    const qa = quizMark(a.word), qb = quizMark(b.word);
+    const rank = q => q ? (q.ok ? 2 : 0) : 1;
+    return rank(qa) - rank(qb);
+  });
+  const head = pool.slice(0, Math.max(QZ_MAX, 0));
+  for(let i=head.length-1;i>0;i--){ const j=Math.floor(Math.random()*(i+1)); [head[i],head[j]]=[head[j],head[i]]; }
+  qzList = head; qzIdx = 0; qzScore = 0; qzWrong = []; qzLocked = false; qzResults = {};
+  document.getElementById('quiz-modal').classList.add('show');
+  renderQuiz();
+}
+function closeQuiz() {
+  document.getElementById('quiz-modal').classList.remove('show');
+  saveQuizResults();
+}
+function qzOptionsFor(v) {
+  const others = myVocab().map(x=>x.word).filter(w => w && w !== v.word);
+  for(let i=others.length-1;i>0;i--){ const j=Math.floor(Math.random()*(i+1)); [others[i],others[j]]=[others[j],others[i]]; }
+  const opts = [v.word, ...others.slice(0,3)];
+  for(let i=opts.length-1;i>0;i--){ const j=Math.floor(Math.random()*(i+1)); [opts[i],opts[j]]=[opts[j],opts[i]]; }
+  return opts;
+}
+function renderQuiz() {
+  const body = document.getElementById('quiz-body');
+  const cnt = document.getElementById('quiz-count');
+  if(qzIdx >= qzList.length) { renderQuizDone(); return; }
+  const v = qzList[qzIdx];
+  const m = v.meta || lookupMeaning(v.word) || {};
+  cnt.textContent = `${qzIdx+1} / ${qzList.length}`;
+  const opts = qzOptionsFor(v);
+  body.innerHTML = `
+    <div class="quiz-prog">${qzIdx+1}번째 문제 · 지금까지 ${qzScore}개 맞았어요</div>
+    <div class="quiz-bar"><i style="width:${Math.round(qzIdx/qzList.length*100)}%"></i></div>
+    <div class="quiz-q">
+      <div class="ql">이 뜻을 가진 영어 단어는?</div>
+      <div class="qk">${esc(m.ko || '')}</div>
+      ${m.meaning?`<div class="qm">${esc(m.meaning)}</div>`:''}
+    </div>
+    <div class="quiz-opts">${opts.map(o=>`<button class="quiz-opt" onclick="answerQuiz(this,'${jsq(o)}','${jsq(v.word)}')">${esc(o)}</button>`).join('')}</div>
+    <div class="quiz-fb" id="quiz-fb"></div>`;
+  qzLocked = false;
+}
+function answerQuiz(btn, picked, correct) {
+  if(qzLocked) return;
+  qzLocked = true;
+  const ok = picked === correct;
+  const fb = document.getElementById('quiz-fb');
+  document.querySelectorAll('.quiz-opt').forEach(b=>{
+    b.disabled = true;
+    if(b.textContent === correct) b.classList.add('ok');
+  });
+  if(ok) {
+    qzScore++;
+    fb.className = 'quiz-fb ok';
+    fb.textContent = '맞았어요! ✅';
+  } else {
+    btn.classList.add('no');
+    qzWrong.push({word: correct, ko: (lookupMeaning(correct)||{}).ko || ''});
+    fb.className = 'quiz-fb no';
+    fb.textContent = `정답은 ${correct} 이에요 🔁`;
+  }
+  qzResults[correct] = ok;
+  speak(correct, 'en-US');
+  setTimeout(()=>{ qzIdx++; renderQuiz(); }, ok ? 700 : 1500);
+}
+function renderQuizDone() {
+  const total = qzList.length;
+  document.getElementById('quiz-count').textContent = '';
+  const msg = qzScore === total ? '전부 다 맞았어요! 말씀이 단어까지 붙잡아 주셨네요 🎉'
+    : qzScore >= Math.ceil(total*0.7) ? '잘하고 있어요! 틀린 단어만 한 번 더 보면 완벽해요 🙂'
+    : '괜찮아요, 단어는 만날수록 익숙해져요. 플래시카드로 한 바퀴 더 돌아볼까요? 🃏';
+  document.getElementById('quiz-body').innerHTML = `
+    <div class="quiz-done">
+      <div class="quiz-score">${qzScore} / ${total}</div>
+      <div class="quiz-msg">${msg}</div>
+      ${qzWrong.length?`<div class="quiz-wrong"><b>다시 볼 단어</b><br>${qzWrong.map(w=>`· ${esc(w.word)}${w.ko?` — ${esc(w.ko)}`:''}`).join('<br>')}</div>`:''}
+      <button class="flash-btn" onclick="openQuiz()">🔁 한 번 더 풀기</button>
+      <button class="flash-btn" style="background:var(--terra);box-shadow:0 3px 0 var(--terra-d)" onclick="closeQuiz();openFlash()">🃏 플래시카드로 복습</button>
+    </div>`;
+  saveQuizResults();
+}
+async function saveQuizResults() {
+  const words = Object.keys(qzResults);
+  if(!words.length) return;
+  const stamp = todayStr();
+  const payload = {};
+  words.forEach(w => {
+    const m = lookupMeaning(w) || {};
+    const entry = {ko:m.ko||'', meaning:m.meaning||'', nuance:m.nuance||'', pos:m.pos||'', passage:m.passage||'',
+                   quiz: stamp + '|' + (qzResults[w] ? 'o' : 'x')};
+    payload[w] = entry;
+    vocabDict[w] = entry;       // 화면에 바로 반영
+  });
+  qzResults = {};
+  renderVocab();
+  try {
+    await apiFetch('/api/announce', {method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({action:'vocab_add', words:payload})});
+  } catch(e) { /* 저장 실패해도 시험 자체는 끝난 상태 */ }
 }
 
 /* ── 백업 ── */
