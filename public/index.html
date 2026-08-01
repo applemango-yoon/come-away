@@ -35,7 +35,8 @@ body.bigfont{--fs:1.2}
 body{font-family:'Gowun Dodum',sans-serif;color:var(--ink);min-height:100vh;background-color:var(--parch);background-image:radial-gradient(rgba(140,120,90,.06) 1.2px,transparent 1.2px);background-size:22px 22px}
 
 /* ── 상점 차양(어닝) 헤더 ── */
-.header{position:sticky;top:0;z-index:10;display:flex;flex-wrap:wrap;align-items:center;gap:8px 14px;padding:9px 16px;background:repeating-linear-gradient(90deg,var(--terra-l) 0 26px,var(--cream) 26px 52px);border-bottom:3px solid var(--terra)}
+.topbar{position:sticky;top:0;z-index:20}
+.header{position:relative;z-index:10;display:flex;flex-wrap:wrap;align-items:center;gap:8px 14px;padding:9px 16px;background:repeating-linear-gradient(90deg,var(--terra-l) 0 26px,var(--cream) 26px 52px);border-bottom:3px solid var(--terra)}
 .header::after{content:'';position:absolute;left:0;right:0;bottom:-11px;height:11px;background-image:radial-gradient(circle at 13px 0,var(--terra) 11px,transparent 12px);background-size:26px 11px;pointer-events:none}
 .shop-sign{flex:0 0 auto;text-align:center;background:var(--cream);border:2px solid var(--line);border-radius:12px;padding:5px 16px;box-shadow:0 3px 0 rgba(140,110,80,.15)}
 .shop-sign h1{font-family:'Jua',sans-serif;font-size:calc(20px * var(--fs));font-weight:400;color:var(--terra-d);letter-spacing:1px;line-height:1.15;white-space:nowrap}
@@ -388,6 +389,7 @@ textarea:focus{border-color:var(--green)}
 <body>
 <script>try{if(localStorage.getItem('ca_bigfont')==='1')document.body.className='bigfont';}catch(e){}</script>
 
+<div class="topbar">
 <div class="header">
   <div class="shop-sign">
     <h1>🥐 MOM Bakery 🍯</h1>
@@ -409,6 +411,7 @@ textarea:focus{border-color:var(--green)}
   <div class="tab" onclick="showTab('plaza')">🧺 광장</div>
   <div class="tab" onclick="showTab('my')">🌱 내 기록</div>
   <div class="tab" id="admin-tab" style="display:none;flex:0 0 auto;padding-left:14px;padding-right:14px" onclick="showTab('admin')">🧑‍🍳 제빵실</div>
+</div>
 </div>
 
 <!-- 로그인 / 내 소개실 모달 -->
@@ -2330,6 +2333,6 @@ setInterval(()=>{ if(!document.hidden) loadDashboard(); }, 30000);
 document.addEventListener('visibilitychange', ()=>{ if(!document.hidden) loadDashboard(); });
 if('serviceWorker' in navigator) navigator.serviceWorker.register('/sw.js').catch(()=>{});
 </script>
-<!-- build:v18 -->
+<!-- build:v18b -->
 </body>
 </html>
