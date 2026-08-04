@@ -317,14 +317,149 @@ KO_BOOKS = {
     '유다서': 'jude', '유': 'jude',
     '요한계시록': 'revelation', '계시록': 'revelation', '계': 'revelation',
 }
+# 자주 쓰는 다른 표기도 함께 알아듣게 (사람마다 적는 방식이 달라서).
+KO_BOOKS.update({
+    '창세': 'genesis', '출애굽': 'exodus', '출애': 'exodus', '레위': 'leviticus',
+    '민수': 'numbers', '신명': 'deuteronomy', '여호수아서': 'joshua', '사사': 'judges',
+    '룻': 'ruth', '느헤미아': 'nehemiah', '에스더서': 'esther', '욥': 'job',
+    '시편': 'psalms', '잠언서': 'proverbs', '전도': 'ecclesiastes',
+    '아가서': 'song of solomon', '이사야서': 'isaiah', '예레미야서': 'jeremiah',
+    '애가서': 'lamentations', '에스겔서': 'ezekiel', '다니엘서': 'daniel',
+    '마태': 'matthew', '마가': 'mark', '누가': 'luke', '요한': 'john',
+    '사도': 'acts', '로마': 'romans', '갈라디아': 'galatians', '에베소': 'ephesians',
+    '빌립보': 'philippians', '골로새': 'colossians', '디도': 'titus',
+    '빌레몬': 'philemon', '히브리': 'hebrews', '야고보': 'james',
+    '유다': 'jude', '계시': 'revelation', '요한계시': 'revelation',
+    '고린도전': '1 corinthians', '고린도후': '2 corinthians',
+    '데살로니가전': '1 thessalonians', '데살로니가후': '2 thessalonians',
+    '디모데전': '1 timothy', '디모데후': '2 timothy',
+    '베드로전': '1 peter', '베드로후': '2 peter',
+    '요한일': '1 john', '요한이': '2 john', '요한삼': '3 john',
+    '사무엘상서': '1 samuel', '사무엘하서': '2 samuel',
+})
 # 긴 이름부터 매칭해야 '요한복음'이 '요'로 잘리지 않는다.
 _BOOK_KEYS = sorted(KO_BOOKS.keys(), key=len, reverse=True)
 
+# 영어로 적는 사람도 있으니 흔한 약어를 알아듣게 (matt 4:3, jn 3:16, 1 cor 13 …)
+EN_BOOKS = {
+    'gen': 'genesis', 'ge': 'genesis', 'gn': 'genesis',
+    'exo': 'exodus', 'exod': 'exodus', 'ex': 'exodus',
+    'lev': 'leviticus', 'lv': 'leviticus', 'le': 'leviticus',
+    'num': 'numbers', 'nu': 'numbers', 'nm': 'numbers', 'nb': 'numbers',
+    'deut': 'deuteronomy', 'deu': 'deuteronomy', 'dt': 'deuteronomy',
+    'josh': 'joshua', 'jos': 'joshua', 'jsh': 'joshua',
+    'judg': 'judges', 'jdg': 'judges', 'jg': 'judges',
+    'rut': 'ruth', 'rth': 'ruth', 'ru': 'ruth',
+    '1sam': '1 samuel', '1sa': '1 samuel', '1sm': '1 samuel',
+    '2sam': '2 samuel', '2sa': '2 samuel', '2sm': '2 samuel',
+    '1kings': '1 kings', '1kgs': '1 kings', '1ki': '1 kings', '1kin': '1 kings',
+    '2kings': '2 kings', '2kgs': '2 kings', '2ki': '2 kings', '2kin': '2 kings',
+    '1chron': '1 chronicles', '1chr': '1 chronicles', '1ch': '1 chronicles',
+    '2chron': '2 chronicles', '2chr': '2 chronicles', '2ch': '2 chronicles',
+    'ezr': 'ezra', 'neh': 'nehemiah', 'ne': 'nehemiah',
+    'est': 'esther', 'esth': 'esther',
+    'jb': 'job',
+    'ps': 'psalms', 'psa': 'psalms', 'psalm': 'psalms', 'psm': 'psalms', 'pss': 'psalms',
+    'prov': 'proverbs', 'pro': 'proverbs', 'prv': 'proverbs', 'pr': 'proverbs',
+    'eccl': 'ecclesiastes', 'ecc': 'ecclesiastes', 'ec': 'ecclesiastes', 'qoh': 'ecclesiastes',
+    'song': 'song of solomon', 'songofsongs': 'song of solomon', 'sos': 'song of solomon',
+    'cant': 'song of solomon', 'ss': 'song of solomon',
+    'isa': 'isaiah', 'is': 'isaiah',
+    'jer': 'jeremiah', 'je': 'jeremiah',
+    'lam': 'lamentations', 'la': 'lamentations',
+    'ezek': 'ezekiel', 'eze': 'ezekiel', 'ezk': 'ezekiel',
+    'dan': 'daniel', 'dn': 'daniel', 'da': 'daniel',
+    'hos': 'hosea', 'ho': 'hosea',
+    'joe': 'joel', 'jl': 'joel',
+    'amo': 'amos', 'am': 'amos',
+    'obad': 'obadiah', 'ob': 'obadiah',
+    'jon': 'jonah', 'jnh': 'jonah',
+    'mic': 'micah', 'mi': 'micah',
+    'nah': 'nahum', 'na': 'nahum',
+    'hab': 'habakkuk', 'hb': 'habakkuk',
+    'zeph': 'zephaniah', 'zep': 'zephaniah', 'zph': 'zephaniah',
+    'hag': 'haggai', 'hg': 'haggai',
+    'zech': 'zechariah', 'zec': 'zechariah', 'zch': 'zechariah',
+    'mal': 'malachi', 'ml': 'malachi',
+    'matt': 'matthew', 'mat': 'matthew', 'mt': 'matthew',
+    'mrk': 'mark', 'mk': 'mark', 'mr': 'mark',
+    'luk': 'luke', 'lk': 'luke',
+    'joh': 'john', 'jhn': 'john', 'jn': 'john',
+    'act': 'acts', 'ac': 'acts',
+    'rom': 'romans', 'ro': 'romans', 'rm': 'romans',
+    '1cor': '1 corinthians', '1co': '1 corinthians',
+    '2cor': '2 corinthians', '2co': '2 corinthians',
+    'gal': 'galatians', 'ga': 'galatians',
+    'eph': 'ephesians', 'ephes': 'ephesians',
+    'phil': 'philippians', 'php': 'philippians', 'pp': 'philippians',
+    'col': 'colossians', 'cl': 'colossians',
+    '1thess': '1 thessalonians', '1thes': '1 thessalonians', '1th': '1 thessalonians',
+    '2thess': '2 thessalonians', '2thes': '2 thessalonians', '2th': '2 thessalonians',
+    '1tim': '1 timothy', '1ti': '1 timothy', '1tm': '1 timothy',
+    '2tim': '2 timothy', '2ti': '2 timothy', '2tm': '2 timothy',
+    'tit': 'titus', 'ti': 'titus',
+    'philem': 'philemon', 'phm': 'philemon', 'pm': 'philemon',
+    'heb': 'hebrews', 'hbr': 'hebrews',
+    'jas': 'james', 'jam': 'james', 'jm': 'james',
+    '1pet': '1 peter', '1pe': '1 peter', '1pt': '1 peter', '1p': '1 peter',
+    '2pet': '2 peter', '2pe': '2 peter', '2pt': '2 peter', '2p': '2 peter',
+    '1joh': '1 john', '1jn': '1 john', '1jo': '1 john', '1j': '1 john',
+    '2joh': '2 john', '2jn': '2 john', '2jo': '2 john', '2j': '2 john',
+    '3joh': '3 john', '3jn': '3 john', '3jo': '3 john', '3j': '3 john',
+    'jud': 'jude', 'jd': 'jude',
+    'rev': 'revelation', 'rv': 'revelation', 'apoc': 'revelation',
+}
+
+# 1·2·3권을 적는 여러 방식을 숫자로 통일 (First John / I John / 1st John …)
+_ORD = [
+    (r'^(?:1st|first|i)\s+', '1 '), (r'^(?:2nd|second|ii)\s+', '2 '),
+    (r'^(?:3rd|third|iii)\s+', '3 '),
+]
+
+
+def _en_book(raw):
+    """영어로 적은 책 이름 → bolls가 아는 이름. 못 알아들으면 None."""
+    t = re.sub(r'[.\s]+', ' ', str(raw or '')).strip().lower()
+    for pat, rep in _ORD:
+        t = re.sub(pat, rep, t)
+    if t in BOLLS_BOOK:
+        return t
+    flat = t.replace(' ', '')
+    if flat in EN_BOOKS:
+        return EN_BOOKS[flat]
+    # 'matthew4' 처럼 붙여 쓴 경우까지는 위에서 걸러지므로 여기선 부분 일치만 본다
+    for full in BOLLS_BOOK:
+        if full.replace(' ', '') == flat:
+            return full
+    return None
+
+
+# 장·절을 적는 온갖 방식을 하나로 다듬는다
+_DASHES = '～~–—−∼﹘－ー'
+_SEPS = '.,;·､、/'
+
+
+def _clean_nums(s):
+    s = re.sub(r'\s+', '', str(s or ''))
+    for d in _DASHES:
+        s = s.replace(d, '-')
+    s = s.replace('장', ':').replace('편', ':').replace('절', '').replace('항', '')
+    s = s.replace('제', '').replace('篇', ':').replace('章', ':')
+    for c in _SEPS:
+        s = s.replace(c, ':')
+    s = re.sub(r':{2,}', ':', s)
+    s = re.sub(r'-{2,}', '-', s)
+    return s.strip(':-')
+
 
 def parse_ref(passage):
-    """'여호수아 4:6-7', '수 4:6~7', '요한복음 3장 16절' → ('joshua', 4, 6, 7).
-    해석 못 하면 None."""
-    s = re.sub(r'\s+', '', str(passage or '')).replace('～', '-').replace('~', '-').replace('–', '-')
+    """'여호수아 4:6-7', '수 4:6~7', '요한복음 3장 16절', '마태복음 4장',
+    '시편 23편 1-3절', 'Matt 4:3-11' → ('joshua', 4, 6, 7). 해석 못 하면 None.
+    절이 없으면 (책, 장, None, None) = 그 장 전체."""
+    raw = str(passage or '').strip()
+    if not raw:
+        return None
+    s = re.sub(r'\s+', '', raw)
     book = None
     for k in _BOOK_KEYS:
         if s.startswith(k):
@@ -332,19 +467,45 @@ def parse_ref(passage):
             s = s[len(k):]
             break
     if not book:
-        m = re.match(r'^([1-3]?[a-zA-Z\s]+)', str(passage or '').strip())
+        m = re.match(r'^([1-3]?\s*[a-zA-Z][a-zA-Z.\s]*)', raw)
         if not m:
             return None
-        book = m.group(1).strip().lower()
-        s = re.sub(r'\s+', '', str(passage or '').strip()[m.end():])
-    s = s.replace('장', ':').replace('절', '').lstrip(':')
-    m = re.match(r'^(\d+)[:.](\d+)(?:-(\d+))?', s)
+        book = _en_book(m.group(1))
+        if not book:
+            return None
+        s = raw[m.end():]
+    s = _clean_nums(s)
+
+    # 장:절-장:절 (장을 넘어가는 범위) → 첫 장의 그 절부터 장 끝까지
+    m = re.match(r'^(\d+):(\d+)-(\d+):(\d+)$', s)
     if m:
-        c, v1 = int(m.group(1)), int(m.group(2))
-        return (book, c, v1, int(m.group(3)) if m.group(3) else v1)
+        return (book, int(m.group(1)), int(m.group(2)), 200)
+    # 장:절-절
+    m = re.match(r'^(\d+):(\d+)-(\d+)$', s)
+    if m:
+        c, a, b = int(m.group(1)), int(m.group(2)), int(m.group(3))
+        return (book, c, a, b if b >= a else a)
+    # 장:절
+    m = re.match(r'^(\d+):(\d+)$', s)
+    if m:
+        v = int(m.group(2))
+        return (book, int(m.group(1)), v, v)
+    # 장만 (마태복음 4 / 마태복음 4장 / 시편 23편)
     m = re.match(r'^(\d+)$', s)
     if m:
-        return (book, int(m.group(1)), None, None)   # 장 전체
+        return (book, int(m.group(1)), None, None)
+    # 장-장 (마태복음 4-5) → 첫 장 전체
+    m = re.match(r'^(\d+)-(\d+)$', s)
+    if m:
+        return (book, int(m.group(1)), None, None)
+    # 앞에서 못 맞췄어도 맨 앞 숫자 두 개만 살려서 최대한 알아듣는다
+    nums = re.findall(r'\d+', s)
+    if len(nums) >= 2:
+        c, a = int(nums[0]), int(nums[1])
+        b = int(nums[2]) if len(nums) >= 3 and int(nums[2]) >= a else a
+        return (book, c, a, b)
+    if len(nums) == 1:
+        return (book, int(nums[0]), None, None)
     return None
 
 
@@ -760,6 +921,7 @@ PROMPT = '''성경 본문 "{passage}"를 분석해서 아래 JSON 형식으로�
   "words": [
     {{
       "english": "본문에 나오는 '영어 단어 하나' 또는 '굳어진 표현/숙어'. 문장·해석 금지 (예: eternal, everlasting, perish, begotten, so, lay down).",
+      "verse": 16,
       "korean": "그 단어의 짧은 한국어 대응어 (예: 영원한)",
       "pos": "품사 (명사/동사/형용사/부사/전치사/접속사/감탄사/동사구/명사구/숙어 중 하나)",
       "meaning": "표준 영어사전(옥스퍼드·메리엄웹스터 급)의 '사전적 정의'를 한국어로 2~3개, 쉼표 구분. 의역·직역·성경식 풀이 금지. (예 so: '매우, 많이, 이 정도로, 이렇게')",
@@ -785,6 +947,7 @@ PROMPT = '''성경 본문 "{passage}"를 분석해서 아래 JSON 형식으로�
       "point": "그래서 이 본문에서 이 단어를 이렇게 읽으면 무엇이 달라지는가, 한 문장"
     }}
   ],
+  "heading": "이 본문이 속한 단락의 '새번역 성경 소제목'. 새번역(표준새번역 개정) 성경이 본문 위에 달아 놓은 단락 제목을 그대로 적어라 (예: '믿음이란 무엇인가', '광야에서 시험을 받으시다'). 요청한 절이 그 소제목 단락 안에 있거나 바로 그 단락이 시작되는 자리일 때만 적고, 단락이 멀거나 확실하지 않으면 빈 문자열로 두어라. 지어내지 마라.",
   "background": "이 본문의 배경. 표준 주석에 근거해 3~4문장으로, 반드시 다음 세 가지를 모두 담아라 — (1) 이 본문이 쓰인 시대와 당시 상황, (2) 이 책을 쓴 저자가 누구인지, (3) 저자가 이 본문을 누구에게 왜 썼는지(집필 의도)."
 }}
 
@@ -798,6 +961,9 @@ words 규칙 (★"영어 사전"이라고 생각하고 뽑아라. 성경 해석�
   - 넣어라 (중학교 수준): commanded, remember, prepare, servant, memorial, inheritance, possess, provisions, tribe, officers, everlasting, perish, dedicate, righteous, covenant, gather, promise, obey, honor, refuge, deliver 같은 낱말과, lay down·pass over·set apart 같은 굳어진 표현.
   - 너무 어려운 신학 전문어(propitiation, sanctification 같은 것)도 빼라. 중학교 교과서에서 볼 법한 수준이 딱 좋다.
 - ★개수: 반드시 8개 이상 12개까지 뽑아라.★ 5개만 주는 것은 부족하다. 본문이 여러 절이면 절마다 골고루 뽑아라. 위에 적은 '중학교 수준'에 해당하면 충분히 넣을 만하다. 그 수준의 단어가 정말 모자랄 때만 8개 미만이어도 된다 — 개수를 채우려고 초등 수준 단어를 억지로 넣지는 마라.
+- ★verse는 그 단어가 실제로 나오는 절 번호를 숫자 하나로 반드시 적어라.★ 여러 절에 나오면 처음 나오는 절 번호를 적는다.
+  위에 주어진 본문의 절 번호 중 하나여야 하고, 지어내면 안 된다. 절이 하나뿐인 본문이면 그 절 번호를 그대로 적어라.
+- 뽑은 단어는 절 번호 순서대로 정렬해서 내보내라 (앞 절 단어가 먼저).
 - 원어(헬라어/히브리어)는 words에 넣지 마 (originals에서).
 originals 규칙 (★영어단어 외우듯 '단어=뜻'으로 끝내지 마라. 이 칸의 목적은 뉘앙스다★):
 - 이 본문에서 가장 중요한 원어 딱 3개만.
@@ -880,7 +1046,7 @@ DEFINE_PROMPT = '''아래 영어 단어들의 "영어사전 뜻"을 알려줘. �
 JSON만 출력.'''
 
 
-SCHEMA_VER = 17  # 분석 결과 형식 버전. 올리면 이전 캐시를 자동으로 무시하고 다시 분석함.
+SCHEMA_VER = 18  # 분석 결과 형식 버전. 올리면 이전 캐시를 자동으로 무시하고 다시 분석함.
 
 
 def _valid(d):
@@ -1016,46 +1182,45 @@ class handler(BaseHTTPRequestHandler):
             #      AI는 그 밖에 단어·원어·배경 설명에만 쓴다.
             sc = fetch_scripture(passage)
             if sc and STUDY_PROMPT:
-                if True:
-                    text = scripture_block(sc)
-                    prompt = STUDY_PROMPT.format(passage=passage, text=text)
+                text = scripture_block(sc)
+                prompt = STUDY_PROMPT.format(passage=passage, text=text)
+                try:
+                    data = call_ai_raw(prompt)
+                except (ValueError, json.JSONDecodeError):
                     try:
-                        data = call_ai_raw(prompt)
-                    except (ValueError, json.JSONDecodeError):
-                        try:
-                            data = call_ai_raw(prompt, strict=True)
-                        except Exception:
-                            data = {}
+                        data = call_ai_raw(prompt, strict=True)
                     except Exception:
                         data = {}
-                    if not isinstance(data, dict):
-                        data = {}
+                except Exception:
+                    data = {}
+                if not isinstance(data, dict):
+                    data = {}
 
-                    # 받아온 실제 본문에 AI가 쓴 개역개정·새번역을 붙이고 절 단위로 검증.
-                    # 검증에 걸린 칸은 아예 빼 버린다 (틀린 본문보다 없는 게 낫다).
-                    byv_ko = dict((r['n'], r.get('개역한글') or '') for r in sc['rows'])
-                    rows, ko_ok = merge_ai_korean(sc['rows'], data.get('verses'), byv_ko)
-                    tr = rows_to_translations(rows)
-                    if not tr:
-                        raise RuntimeError('본문 조립 실패')
+                # 받아온 실제 본문에 AI가 쓴 개역개정·새번역을 붙이고 절 단위로 검증.
+                # 검증에 걸린 칸은 아예 빼 버린다 (틀린 본문보다 없는 게 낫다).
+                byv_ko = dict((r['n'], r.get('개역한글') or '') for r in sc['rows'])
+                rows, ko_ok = merge_ai_korean(sc['rows'], data.get('verses'), byv_ko)
+                tr = rows_to_translations(rows)
+                if not tr:
+                    raise RuntimeError('본문 조립 실패')
 
-                    data['translations'] = tr          # ★개역한글·NKJV·NASB는 받아온 그대로★
-                    data['source'] = 'bolls'
-                    data['verbatim'] = [k for k in VERBATIM if tr.get(k)]
-                    data['tr_got'] = sc['got'] + ko_ok
-                    if isinstance(data.get('words'), list):
-                        data['words'] = data['words'][:12]
-                    data.pop('diffs', None)
-                    data.pop('verses', None)
-                    data.pop('verses_rows', None)
-                    data['v'] = SCHEMA_VER
+                data['translations'] = tr          # ★개역한글·NKJV·NASB는 받아온 그대로★
+                data['source'] = 'bolls'
+                data['verbatim'] = [k for k in VERBATIM if tr.get(k)]
+                data['tr_got'] = sc['got'] + ko_ok
+                if isinstance(data.get('words'), list):
+                    data['words'] = data['words'][:12]
+                data.pop('diffs', None)
+                data.pop('verses', None)
+                data.pop('verses_rows', None)
+                data['v'] = SCHEMA_VER
 
-                    sb('DELETE', 'analyses?passage_key=eq.' + qkey, silent=True)
-                    sb('POST', 'analyses',
-                       {'passage_key': key, 'passage': passage, 'data': data}, silent=True)
-                    data['cached'] = False
-                    self._send_json(data)
-                    return
+                sb('DELETE', 'analyses?passage_key=eq.' + qkey, silent=True)
+                sb('POST', 'analyses',
+                   {'passage_key': key, 'passage': passage, 'data': data}, silent=True)
+                data['cached'] = False
+                self._send_json(data)
+                return
 
             # 1-c. 본문 제공처가 응답하지 않을 때만 예비 경로: AI가 본문을 쓰되,
             #      공개 도메인 KJV를 '정답표'로 삼아 절 단위로 대조·검증한다.
