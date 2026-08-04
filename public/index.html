@@ -108,7 +108,15 @@ textarea:focus{border-color:var(--green)}
 .trans-table td{padding:14px 14px;border-bottom:1px solid var(--line-l);vertical-align:top;line-height:1.95}
 .trans-table td:first-child{font-family:'Jua',sans-serif;color:var(--green-d);font-size:calc(12px * var(--fs));white-space:nowrap;width:76px;border-right:2px dashed var(--green-l)}
 .trans-table tr:last-child td{border-bottom:none}
-.hl{background:var(--soft-yellow);padding:1px 5px;border-radius:6px;color:var(--terra-d);font-weight:700}
+.hl{background:var(--soft-yellow);padding:1px 5px;border-radius:6px;color:var(--terra-d);font-weight:700;cursor:help;border-bottom:1px dotted var(--terra-d)}
+.oh{background:var(--green-l);padding:1px 5px;border-radius:6px;color:var(--green-d);font-weight:700;box-shadow:0 0 0 1px var(--green) inset}
+.hl-note{font-size:calc(11.5px * var(--fs));color:var(--ink2);margin-top:10px;line-height:1.7}
+.hl-note b{color:var(--terra-d)}
+.wait-badge{display:none;font-family:'Gowun Dodum',sans-serif;font-size:calc(11px * var(--fs));color:var(--green-d);background:var(--green-l);border-radius:999px;padding:2px 9px;margin-left:7px;font-weight:700;vertical-align:middle}
+.wait-badge.on{display:inline-block}
+.wait-box{padding:16px 4px;color:var(--ink2);font-size:calc(13.5px * var(--fs))}
+.orig-hl-btn{margin-top:10px;background:var(--green-l);color:var(--green-d);border:2px solid var(--green);border-radius:999px;padding:6px 13px;font-family:'Jua',sans-serif;font-size:calc(12px * var(--fs));cursor:pointer}
+.orig-hl-btn.on{background:var(--green);color:white}
 .vn{color:var(--green-d);font-size:calc(10px * var(--fs));font-weight:700;margin-right:2px;vertical-align:super;line-height:0}
     .verbatim{display:inline-block;background:var(--green-l);color:var(--green-d);font-size:calc(9.5px * var(--fs));font-weight:700;border-radius:999px;padding:1px 6px;margin-left:4px;vertical-align:middle}
 .pos-badge{background:var(--terra-l);color:var(--terra-d);font-size:calc(10px * var(--fs));padding:2px 8px;border-radius:999px;vertical-align:middle;margin-left:5px}
@@ -645,18 +653,19 @@ textarea:focus{border-color:var(--green)}
       <div class="card-title" onclick="toggleFold('trans')">📚 번역본 비교<span class="fold-ar">▾</span></div>
       <div class="fold-body">
         <table class="trans-table"><tbody id="trans-body"></tbody></table>
+        <div class="hl-note" id="hl-note" style="display:none"><b>노란 칠</b>은 NKJV와 NASB가 <b>같은 자리를 다른 낱말로</b> 옮긴 곳이에요. (마우스를 올리거나 길게 누르면 상대 번역본의 표현이 보여요) 어미·조동사만 다른 곳은 칠하지 않았어요.</div>
       </div>
     </div>
     <div class="card fold" id="fold-words">
-      <div class="card-title" onclick="toggleFold('words')">🔍 핵심 단어<span class="fold-ar">▾</span></div>
+      <div class="card-title" onclick="toggleFold('words')">🔍 핵심 단어<span class="wait-badge" id="wait-words">⏳ 분석 중…</span><span class="fold-ar">▾</span></div>
       <div class="fold-body"><div id="words-body"></div></div>
     </div>
     <div class="card fold" id="fold-orig">
-      <div class="card-title" onclick="toggleFold('orig')">📜 원어 포인트 3<span class="fold-ar">▾</span></div>
+      <div class="card-title" onclick="toggleFold('orig')">📜 원어 포인트 3<span class="wait-badge" id="wait-orig">⏳ 분석 중…</span><span class="fold-ar">▾</span></div>
       <div class="fold-body"><div id="originals-body"></div></div>
     </div>
     <div class="card fold" id="fold-bg">
-      <div class="card-title" onclick="toggleFold('bg')">🏺 배경<span class="fold-ar">▾</span></div>
+      <div class="card-title" onclick="toggleFold('bg')">🏺 배경<span class="wait-badge" id="wait-bg">⏳ 분석 중…</span><span class="fold-ar">▾</span></div>
       <div class="fold-body"><p class="bg-text" id="bg-text"></p></div>
     </div>
     <button class="flash-btn" style="background:var(--terra);box-shadow:0 3px 0 var(--terra-d)" onclick="copyAnalysis()">📋 이 분석을 노션에 복사</button>
@@ -1120,7 +1129,7 @@ async function analyze(fresh) {
   const passage = document.getElementById('passage').value.trim();
   if(!passage) { document.getElementById('passage').focus(); return; }
   const btn = document.getElementById('analyze-btn');
-  const steps = ['성경 본문을 받아오는 중…','번역본을 맞춰 보는 중…','단어를 고르는 중…','원어를 살펴보는 중…','거의 다 됐어요…'];
+  const steps = ['성경 본문을 받아오는 중…','번역본을 맞춰 보는 중…','거의 다 됐어요…'];
   let si = 0;
   btn.innerHTML = '<span class="spinner"></span>' + steps[0];
   btn.disabled = true;
@@ -1134,23 +1143,60 @@ async function analyze(fresh) {
   isSaved = false;
   const saveBtn = document.querySelector('button.btn-primary[onclick="saveEntry()"]');
   if(saveBtn){ saveBtn.textContent='기록 저장'; saveBtn.disabled=false; saveBtn.style.background=''; }
+
+  /* 본문(text)과 단어·원어(study)를 동시에 부른다.
+     본문이 먼저 오면 바로 펼쳐서 읽을 수 있게 하고, 단어·원어는 접힌 채로 뒤에서 계속 받아온다. */
+  const post = (stage) => apiFetch('/api/analyze', {method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify(fresh===true ? {passage, stage, fresh:true} : {passage, stage})}).then(r => r.json());
+  const pText  = post('text');
+  const pStudy = post('study').catch(e => ({error:'study', message:e && e.message}));
+
+  let okText = false;
   try {
-    const res = await apiFetch('/api/analyze', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(fresh===true ? {passage, fresh:true} : {passage})});
-    const data = await res.json();
-    if(data.error) { toast('오류: '+(data.message||data.error)); return; }
-    render(data);
-    if(data.cached) document.getElementById('cache-note').style.display = 'block';
+    const d1 = await pText;
+    if(d1 && d1.error) { toast('오류: '+(d1.message||d1.error)); return; }
+    renderText(d1);
+    initFolds();
+    setStudyWaiting(true);
+    okText = true;
+    if(d1 && d1.cached) document.getElementById('cache-note').style.display = 'block';
   } catch(e) {
     toast('오류: '+e.message);
+    return;
   } finally {
     clearInterval(stepTimer);
+    if(okText) btn.innerHTML = '<span class="spinner"></span>단어·원어를 살펴보는 중…';
+    else { btn.innerHTML = '분석하기'; btn.disabled = false; }
+  }
+
+  try {
+    const d2 = await pStudy;
+    if(d2 && !d2.error){
+      ['words','originals','heading','background'].forEach(function(k){
+        if(d2[k] !== undefined) lastAnalysis[k] = d2[k];
+      });
+      renderStudy(lastAnalysis);
+      initFolds();
+    } else {
+      document.getElementById('words-body').innerHTML = '<div class="wait-box">단어를 불러오지 못했어요. 잠시 뒤에 다시 분석을 눌러 주세요.</div>';
+      document.getElementById('originals-body').innerHTML = '<div class="wait-box">원어를 불러오지 못했어요.</div>';
+      document.getElementById('bg-text').innerHTML = '';
+    }
+  } catch(e) {
+    document.getElementById('words-body').innerHTML = '<div class="wait-box">단어를 불러오지 못했어요. 잠시 뒤에 다시 분석을 눌러 주세요.</div>';
+  } finally {
+    setStudyWaiting(false);
     btn.innerHTML = '분석하기';
     btn.disabled = false;
+    savePastAnalysis(passage, lastAnalysis);
   }
 }
 
 let lastTrans = null;
-let lastAnalysis = null;
+let lastVerbatim = [];
+let lastAnalysis = {};
+let origHl = -1;          // 번역본에 자리를 표시해 둔 원어 번호 (없으면 -1)
+let studyPending = false; // 단어·원어를 아직 받아오는 중인지
 function speakTrans(key) {
   if(!lastTrans || !lastTrans[key]) return;
   // 절 번호와 태그는 읽지 않도록 걷어내고 본문만 읽어 준다
@@ -1209,19 +1255,46 @@ function speak(text, lang, tag){
   const t = String(text);
   ttsSpeakList([t], lang, tag || ('t:' + (lang||'en') + ':' + t.slice(0, 60)));
 }
-function render(data) {
-  data = data || {};
-  const trans = (data.translations && typeof data.translations === 'object') ? data.translations : {};
-  const wordsArr = Array.isArray(data.words) ? data.words : [];
-  const origArr = Array.isArray(data.originals) ? data.originals : [];
-  lastTrans = trans;
-  lastAnalysis = data;
+/* ── 화면 그리기 : 본문(text) / 단어·원어(study) 두 갈래 ── */
+
+/* 번역본 표를 다시 그린다. (원어 자리 표시가 켜져 있으면 그것도 같이 칠한다) */
+function paintTrans(){
   const tbody = document.getElementById('trans-body');
-  const verbatim = Array.isArray(data.verbatim) ? data.verbatim : [];
+  if(!tbody) return;
+  const trans = lastTrans || {};
+  const verbatim = Array.isArray(lastVerbatim) ? lastVerbatim : [];
   tbody.innerHTML = ['개역개정','새번역','NKJV','NASB'].map(v =>
     trans[v] ? `<tr><td>${v}${verbatim.indexOf(v)>=0?`<span class="verbatim" title="성경 본문 제공처에서 받아온 원문 그대로예요">원문</span>`:''}${(v==='NKJV'||v==='NASB')?`<button class="tts-btn" title="영어로 듣기" onclick="speakTrans('${v}')">🔊</button>`:''}</td><td>${trans[v]}</td></tr>` : ''
   ).join('');
-  document.getElementById('words-body').innerHTML = '<div class="words-grid">' + wordsArr.map((w,i) => {
+  applyOrigHl();
+}
+
+function renderText(data) {
+  data = data || {};
+  const trans = (data.translations && typeof data.translations === 'object') ? data.translations : {};
+  lastTrans = trans;
+  lastVerbatim = Array.isArray(data.verbatim) ? data.verbatim : [];
+  lastAnalysis = data;
+  origHl = -1;
+  paintTrans();
+  // 노란 칠이 하나라도 있을 때만 설명 줄을 보여 준다
+  const note = document.getElementById('hl-note');
+  if(note){
+    const any = ['NKJV','NASB'].some(v => /class="hl"/.test(String(trans[v]||'')));
+    note.style.display = any ? 'block' : 'none';
+  }
+  const area = document.getElementById('result-area');
+  area.style.display = 'block';
+  area.scrollIntoView({behavior:'smooth'});
+}
+
+function renderStudy(data) {
+  data = data || {};
+  const wordsArr = Array.isArray(data.words) ? data.words : [];
+  const origArr = Array.isArray(data.originals) ? data.originals : [];
+  origHl = -1;
+  document.getElementById('words-body').innerHTML = wordsArr.length
+    ? '<div class="words-grid">' + wordsArr.map((w,i) => {
     w = w || {};
     const en = esc(w.english||''), ko = esc(w.korean||'');
     const title = en ? `${en}${ko?` <span>(${ko})</span>`:''}` : ko;   // '영어 (한국어)'
@@ -1232,8 +1305,9 @@ function render(data) {
       <div class="word-row"><span class="wk">의미</span><span class="wv">${esc(w.meaning||'')}</span></div>
       <div class="word-row"><span class="wk">뉘앙스</span><span class="wv">${esc(w.nuance||'')}</span></div>
     </div>`;
-  }).join('') + '</div>';
-  document.getElementById('originals-body').innerHTML = origArr.map(o => {
+  }).join('') + '</div>'
+    : '<div class="empty" style="padding:20px">단어 정보가 없어요.</div>';
+  document.getElementById('originals-body').innerHTML = origArr.map((o,i) => {
     o = o || {};
     const lang = /^\s*h/i.test(String(o.strong||'')) ? 'he-IL' : 'el-GR';   // H=히브리어, G=헬라어
     const spk = o.original ? `<button class="tts-btn" title="원어로 듣기" onclick="speak('${jsq(o.original)}','${lang}')">🔊</button>` : '';
@@ -1247,6 +1321,9 @@ function render(data) {
       </div>` : '';
     const nuance = o.nuance ? `<div class="orig-nuance"><b>결·뉘앙스</b> ${esc(o.nuance)}</div>` : '';
     const point = o.point ? `<div class="orig-point">💡 ${esc(o.point)}</div>` : '';
+    const ph = (o.phrases && typeof o.phrases === 'object') ? o.phrases : null;
+    const hlBtn = (ph && (String(ph.ko||'').trim() || String(ph.en||'').trim()))
+      ? `<button class="orig-hl-btn" data-i="${i}" onclick="highlightOriginal(${i})">📍 번역본에서 이 자리 보기</button>` : '';
     return `<div class="orig-card">
       <div class="orig-word">${esc(o.original||'')}${spk}<span>${esc(o.reading||'')}${o.korean?' · '+esc(o.korean):''}</span></div>
       ${o.where?`<div class="orig-where">📍 ${esc(o.where)}</div>`:''}
@@ -1254,6 +1331,7 @@ function render(data) {
       ${nuance}
       ${refHtml}
       ${point}
+      ${hlBtn}
       ${strongLinks(o.strong)}
     </div>`;
   }).join('') || '<div class="empty" style="padding:20px">원어 정보가 없어요.</div>';
@@ -1261,10 +1339,6 @@ function render(data) {
   document.getElementById('bg-text').innerHTML =
     (headTxt ? `<b class="bg-head">📑 새번역 소제목 — “${esc(headTxt)}”</b>` : '')
     + esc(data.background||'').replace(/\n/g,'<br>');
-  initFolds();
-  document.getElementById('result-area').style.display = 'block';
-  document.getElementById('result-area').scrollIntoView({behavior:'smooth'});
-  savePastAnalysis((document.getElementById('passage').value||'').trim(), data);
   wordPool = wordsArr.map(w=>(w&&w.english)||'').filter(Boolean);
   words = [];               // 처음엔 비어 있고, 누른 단어만 담겨요
   wordMeta = {};
@@ -1272,6 +1346,169 @@ function render(data) {
     if(w && w.english) wordMeta[w.english] = {ko:w.korean||'', meaning:w.meaning||'', nuance:w.nuance||'', pos:w.pos||''};
   });
   renderChips();
+}
+
+/* 한 번에 받아온 분석(내 기록에서 펼쳐 볼 때 등) */
+function render(data) {
+  renderText(data);
+  renderStudy(data);
+  initFolds();
+  savePastAnalysis((document.getElementById('passage').value||'').trim(), data);
+}
+
+/* ── 단어·원어를 기다리는 동안 ── */
+function setStudyWaiting(on){
+  studyPending = !!on;
+  ['words','orig','bg'].forEach(function(k){
+    var b = document.getElementById('wait-'+k);
+    if(b) b.classList.toggle('on', !!on);
+    var c = document.getElementById('fold-'+k);
+    if(c && on) c.classList.add('folded');       // 기다리는 동안은 접어 둔다
+  });
+  if(on){
+    document.getElementById('words-body').innerHTML = '<div class="wait-box">⏳ 단어를 고르는 중이에요…</div>';
+    document.getElementById('originals-body').innerHTML = '<div class="wait-box">⏳ 원어를 살펴보는 중이에요…</div>';
+    document.getElementById('bg-text').innerHTML = '<span class="wait-box">⏳ 배경을 정리하는 중이에요…</span>';
+  }
+}
+
+/* ── 원어가 번역된 자리를 번역본 표에서 찾아 초록으로 칠하기 ── */
+function highlightOriginal(i){
+  origHl = (origHl === i) ? -1 : i;
+  paintTrans();
+  Array.prototype.forEach.call(document.querySelectorAll('.orig-hl-btn'), function(b){
+    var on = String(origHl) === b.getAttribute('data-i');
+    b.classList.toggle('on', on);
+    b.textContent = on ? '✕ 표시 지우기' : '📍 번역본에서 이 자리 보기';
+  });
+  if(origHl >= 0){
+    var c = document.getElementById('fold-trans');
+    if(c) c.classList.remove('folded');
+    var el = document.getElementById('fold-trans');
+    if(el) el.scrollIntoView({behavior:'smooth', block:'start'});
+  }
+}
+
+function applyOrigHl(){
+  if(origHl < 0) return 0;
+  var arr = (lastAnalysis && Array.isArray(lastAnalysis.originals)) ? lastAnalysis.originals : [];
+  var o = arr[origHl];
+  if(!o || !o.phrases) return 0;
+  var ko = String(o.phrases.ko||'').trim(), en = String(o.phrases.en||'').trim();
+  var tbody = document.getElementById('trans-body');
+  if(!tbody) return 0;
+  var found = 0;
+  Array.prototype.forEach.call(tbody.querySelectorAll('tr'), function(tr){
+    var name = (tr.cells[0] ? tr.cells[0].textContent : '').trim();
+    var cell = tr.cells[1];
+    if(!cell) return;
+    var isEn = name.indexOf('NKJV') === 0 || name.indexOf('NASB') === 0;
+    var needle = isEn ? en : ko;
+    if(!needle) return;
+    var nodes = textNodesOf(cell);
+    if(!nodes.length) return;
+    var hay = cellText(nodes);
+    var r = isEn ? findPhraseEn(hay, needle) : findPhraseKo(hay, needle);
+    if(r){ wrapRange(nodes, r[0], r[1]); found++; }
+  });
+  return found;
+}
+
+/* 글자 마디 다루기 (절 번호 <sup>은 건너뛴다) */
+function textNodesOf(el){
+  var out = [], w = document.createTreeWalker(el, NodeFilter.SHOW_TEXT, null, false), n;
+  while((n = w.nextNode())){
+    if(n.parentNode && n.parentNode.nodeName === 'SUP') continue;
+    out.push(n);
+  }
+  return out;
+}
+function cellText(nodes){
+  return nodes.map(function(n){ return n.nodeValue; }).join('');
+}
+function wrapRange(nodes, start, end){
+  var pos = 0, segs = [];
+  nodes.forEach(function(n){
+    var len = n.nodeValue.length, a = pos, b = pos + len; pos = b;
+    var s2 = Math.max(start, a), e2 = Math.min(end, b);
+    if(e2 > s2) segs.push({node:n, s:s2 - a, e:e2 - a});
+  });
+  for(var i = segs.length - 1; i >= 0; i--){
+    var g = segs[i], node = g.node;
+    if(g.e < node.nodeValue.length) node.splitText(g.e);
+    if(g.s > 0) node = node.splitText(g.s);
+    var sp = document.createElement('span');
+    sp.className = 'oh';
+    node.parentNode.replaceChild(sp, node);
+    sp.appendChild(node);
+  }
+}
+
+/* 영어 : 그대로 찾아보고, 없으면 낱말 창을 밀며 겹치는 정도로 찾는다 */
+function findPhraseEn(hay, needle){
+  var low = String(hay||'').toLowerCase(), nlow = String(needle||'').toLowerCase().trim();
+  if(!nlow) return null;
+  var i = low.indexOf(nlow);
+  if(i >= 0) return [i, i + nlow.length];
+  var toks = [], re = /[A-Za-z0-9']+/g, m;
+  while((m = re.exec(hay))) toks.push([m[0].toLowerCase(), m.index, m.index + m[0].length]);
+  var need = nlow.match(/[a-z0-9']+/g) || [];
+  if(!need.length || !toks.length) return null;
+  var nset = {}; need.forEach(function(w){ nset[w] = 1; });
+  var W = need.length, best = null, bestSc = 0;
+  for(var a = 0; a < toks.length; a++){
+    for(var len = Math.max(1, W - 2); len <= Math.min(W + 2, toks.length - a); len++){
+      var seen = {}, hit = 0;
+      for(var k = a; k < a + len; k++){
+        var w2 = toks[k][0];
+        if(nset[w2] && !seen[w2]){ seen[w2] = 1; hit++; }
+      }
+      var sc = hit / Math.max(W, len);
+      if(sc > bestSc){ bestSc = sc; best = [toks[a][1], toks[a + len - 1][2]]; }
+    }
+  }
+  return bestSc >= 0.5 ? best : null;
+}
+
+/* 한국어 : 띄어쓰기를 지우고 그대로 찾아보고, 없으면 두 글자 묶음이 겹치는 정도로 찾는다 */
+function koGrams(s){
+  var t = String(s||'').replace(/[^가-힣0-9A-Za-z]/g, ''), out = [];
+  for(var i = 0; i + 2 <= t.length; i++) out.push(t.slice(i, i + 2));
+  return out;
+}
+function findPhraseKo(hay, needle){
+  var nd = String(needle||'').trim();
+  if(!nd) return null;
+  hay = String(hay||'');
+  var strip = '', map = [];
+  for(var i = 0; i < hay.length; i++){
+    if(/\s/.test(hay[i])) continue;
+    strip += hay[i]; map.push(i);
+  }
+  var nstrip = nd.replace(/\s+/g, '');
+  if(nstrip){
+    var j = strip.indexOf(nstrip);
+    if(j >= 0) return [map[j], map[j + nstrip.length - 1] + 1];
+  }
+  var words2 = [], re = /\S+/g, m;
+  while((m = re.exec(hay))) words2.push([m[0], m.index, m.index + m[0].length]);
+  var ng = koGrams(nd);
+  if(!ng.length || !words2.length) return null;
+  var nset = {}; ng.forEach(function(g){ nset[g] = 1; });
+  var W = (nd.split(/\s+/).filter(Boolean)).length || 1;
+  var best = null, bestSc = 0;
+  for(var a = 0; a < words2.length; a++){
+    for(var len = Math.max(1, W - 1); len <= Math.min(W + 2, words2.length - a); len++){
+      var seg = hay.slice(words2[a][1], words2[a + len - 1][2]);
+      var sg = koGrams(seg);
+      if(!sg.length) continue;
+      var seen = {}, hit = 0;
+      sg.forEach(function(g){ if(nset[g] && !seen[g]){ seen[g] = 1; hit++; } });
+      var sc = hit / Math.max(ng.length, sg.length);
+      if(sc > bestSc){ bestSc = sc; best = [words2[a][1], words2[a + len - 1][2]]; }
+    }
+  }
+  return bestSc >= 0.5 ? best : null;
 }
 
 /* 원어 → 블루레터바이블·바이블허브 확인 링크 (Strong's 번호 기반) */
@@ -1645,7 +1882,7 @@ async function toggleScrip(id) {
   if(!data) {
     body.innerHTML = '<div class="scrip-msg"><span class="spinner"></span> 말씀을 불러오는 중…</div>';
     try {
-      const res = await apiFetch('/api/analyze', {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({passage})});
+      const res = await apiFetch('/api/analyze', {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({passage, stage:'text'})});
       data = await res.json();
       if(data && data.error) data = null;
     } catch(err) { data = null; }
@@ -2499,6 +2736,6 @@ if('serviceWorker' in navigator) navigator.serviceWorker.register('/sw.js').catc
   <button id="tts-pause" onclick="ttsPause()">⏸ 잠깐</button>
   <button onclick="ttsStop()">⏹ 그만</button>
 </div>
-<!-- build:v19 -->
+<!-- build:v20 -->
 </body>
 </html>

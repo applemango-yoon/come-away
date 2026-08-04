@@ -25,16 +25,32 @@ def member_ok(h):
         return False
 
 
+def _lab(s):
+    """하이라이트 말풍선에 넣을 상대 번역본 표현 (따옴표·대괄호는 빼서 안전하게)."""
+    s = str(s or '')
+    for ch in '[]|"':
+        s = s.replace(ch, ' ')
+    s = re.sub(r'\s+', ' ', s).strip()
+    return s[:60]
+
+
 def mark_highlights(text):
-    text = re.sub(r'\[H\](.*?)\[/H\]', r'<span class="hl">\1</span>', text)
+    """[H|상대표현]본문[/H] → <span class="hl" title="…">본문</span>"""
+    def _h(m):
+        label = (m.group(1) or '').strip()
+        inner = m.group(2)
+        if label:
+            return '<span class="hl" title="다른 번역본: %s">%s</span>' % (label, inner)
+        return '<span class="hl">%s</span>' % inner
+
+    text = re.sub(r'\[H(?:\|([^\]]*))?\](.*?)\[/H\]', _h, text or '')
     return re.sub(r'\[V(\d+)\]\s*', r'<sup class="vn">\1</sup>', text)
 
 
-# ── 하이라이트 검증: '똑같은 표현'은 코드로 강제 제거 ────────────────────
-# AI가 규칙을 어기고 동일한 표현(NKJV/NASB 둘 다 "only begotten" 등)을 감싸는 일이 있어
-# 프롬프트에만 의존하지 않고, 서버에서 짝을 직접 대조해 확실히 지운다.
 def _plain(s):
-    return re.sub(r'\[/?H\]', '', s or '')
+    """표시용 태그·표시자를 걷어낸 맨 글자 (본문 검사용)."""
+    s = re.sub(r'\[/?H(?:\|[^\]]*)?\]', '', s or '')
+    return re.sub(r'<[^>]*>', ' ', s)
 
 
 def _norm_en(s):
@@ -43,167 +59,180 @@ def _norm_en(s):
     return re.sub(r'\s+', ' ', s).strip()
 
 
-def _norm_ko(s):
-    s = re.sub(r'[^가-힣ㄱ-ㆎ0-9a-zA-Z ]+', ' ', s or '')
-    return re.sub(r'\s+', '', s)
-
-
-def _prune_one(text, other_plain, lang):
-    """상대 번역본이 '글자 그대로 똑같은 표현'을 쓰고 있으면 그 하이라이트를 벗긴다."""
-    if lang == 'en':
-        hay = _norm_en(other_plain)
-
-        def same_in_other(sp):
-            n = _norm_en(sp)
-            if not n:
-                return True
-            return re.search(r'(?<![a-z0-9])' + re.escape(n) + r'(?![a-z0-9])', hay) is not None
-    else:
-        hay = _norm_ko(other_plain)
-
-        def same_in_other(sp):
-            n = _norm_ko(sp)
-            return (not n) or (n in hay)
-
-    def repl(m):
-        inner = m.group(1)
-        return inner if same_in_other(inner) else '[H]' + inner + '[/H]'
-
-    return re.sub(r'\[H\](.*?)\[/H\]', repl, text)
-
-
-PAIR_KEYS = (('ko', '개역개정', '새번역'), ('en', 'NKJV', 'NASB'))
-
-
-def _find_span(text, span, lang):
-    """본문에서 표현의 위치를 찾는다. 영어는 대소문자 무시 + 단어 경계 우선."""
-    if lang == 'en':
-        m = re.search(r'(?<![A-Za-z0-9])' + re.escape(span) + r'(?![A-Za-z0-9])', text, re.I)
-        if m:
-            return m.start(), m.end()
-        i = text.lower().find(span.lower())
-        return (i, i + len(span)) if i >= 0 else (-1, -1)
-    i = text.find(span)
-    return (i, i + len(span)) if i >= 0 else (-1, -1)
-
-
 def _wrap_ranges(text, ranges):
-    """지정한 위치들을 [H]...[/H]로 감싼다. (겹치는 것은 앞의 것만)"""
+    """지정한 위치들을 [H|상대표현]…[/H]로 감싼다. (겹치는 것은 앞의 것만)"""
     out, last = [], 0
-    for st, en in sorted(ranges):
+    for st, en, label in sorted(ranges):
         if st < last or st < 0 or en > len(text) or en <= st:
             continue
         out.append(text[last:st])
-        out.append('[H]' + text[st:en] + '[/H]')
+        out.append('[H|' + _lab(label) + ']' + text[st:en] + '[/H]')
         last = en
     out.append(text[last:])
     return ''.join(out)
 
 
-# ── 두 번역본을 '기계적으로' 대조해서 다른 자리를 찾아낸다 ──────────────
-# AI가 다른 자리를 놓치는 일이 잦아서(여호수아 1:10-13처럼 차이가 많은데 하나도 못 잡는 경우),
-# 코드가 직접 낱말 단위로 비교해 '다른 자리'를 빠짐없이 짝으로 찾아낸다.
-_TOK_EN = re.compile(r"[A-Za-z][A-Za-z'’]*")
-_TOK_KO = re.compile(r'\S+')
+# ── 두 영어 번역본을 '기계적으로' 대조해서 다른 자리를 찾아낸다 ──────────
+# NKJV·NASB는 성경 본문 제공처에서 글자 그대로 받아오므로, AI에게 묻지 않고
+# 코드가 직접 낱말 단위로 비교한다. (빠르고, 지어낼 여지가 없다)
+_TOK_EN = re.compile(r"[A-Za-z][A-Za-z'\u2019]*")
 
 
-def _tokens(text, lang):
-    pat = _TOK_EN if lang == 'en' else _TOK_KO
-    return [(m.group(0), m.start(), m.end()) for m in pat.finditer(text or '')]
+def _tokens(text):
+    return [(m.group(0), m.start(), m.end()) for m in _TOK_EN.finditer(text or '')]
 
 
-def _tok_norm(t, lang):
-    return _norm_en(t) if lang == 'en' else _norm_ko(t)
-
-
-def auto_pairs(pa, pb, lang, limit=16):
-    """두 본문에서 서로 다른 자리를 (A위치, B위치) 짝으로 돌려준다."""
-    ta, tb = _tokens(pa, lang), _tokens(pb, lang)
+def auto_pairs(pa, pb, limit=16):
+    """두 영어 본문에서 서로 다른 자리를 찾아 돌려준다.
+    각 항목은 (A위치, B위치, A묶음글, B묶음글).
+    '묶음글'은 낱말 하나만 사이에 두고 이어진 자리들을 통째로 이은 것으로,
+    'walks not' ↔ 'does not walk'처럼 어순만 바뀐 자리를 통째로 보고 걸러내는 데 쓴다."""
+    ta, tb = _tokens(pa), _tokens(pb)
     if not ta or not tb:
         return []
-    na = [_tok_norm(t[0], lang) for t in ta]
-    nb = [_tok_norm(t[0], lang) for t in tb]
-    out = []
+    na = [_norm_en(t[0]) for t in ta]
+    nb = [_norm_en(t[0]) for t in tb]
+
+    groups = []
     for tag, i1, i2, j1, j2 in difflib.SequenceMatcher(None, na, nb, autojunk=False).get_opcodes():
         if tag == 'equal':
             continue
-        # 한쪽이 비어 있으면(한 번역본에만 있는 말) 앞뒤 낱말을 함께 묶어 '짝'을 만든다
-        if i1 == i2 or j1 == j2:
-            if i1 > 0 and j1 > 0:
-                i1 -= 1
-                j1 -= 1
-            elif i2 < len(ta) and j2 < len(tb):
-                i2 += 1
-                j2 += 1
-            else:
+        if groups and (i1 - groups[-1][-1][1]) <= 1 and (j1 - groups[-1][-1][3]) <= 1:
+            groups[-1].append((i1, i2, j1, j2))
+        else:
+            groups.append([(i1, i2, j1, j2)])
+
+    def _txt(toks, src, x1, x2):
+        return src[toks[x1][1]:toks[x2 - 1][2]] if x2 > x1 else ''
+
+    out = []
+    for g in groups:
+        ga = _txt(ta, pa, g[0][0], g[-1][1])
+        gb = _txt(tb, pb, g[0][2], g[-1][3])
+        for i1, i2, j1, j2 in g:
+            # 한쪽이 비어 있으면(한 번역본에만 있는 말) 앞뒤 낱말을 함께 묶어 '짝'을 만든다
+            if i1 == i2 or j1 == j2:
+                if i1 > 0 and j1 > 0:
+                    i1 -= 1
+                    j1 -= 1
+                elif i2 < len(ta) and j2 < len(tb):
+                    i2 += 1
+                    j2 += 1
+                else:
+                    continue
+            if i1 >= i2 or j1 >= j2:
                 continue
-        if i1 >= i2 or j1 >= j2:
-            continue
-        # 한국어는 덩어리째 칠하면 지저분하므로, 낱말 수가 같으면 낱말끼리 짝지어 쪼갠다
-        blocks = [(i1, i2, j1, j2)]
-        if lang == 'ko' and 1 < (i2 - i1) == (j2 - j1) <= 3:
-            blocks = [(i1 + k, i1 + k + 1, j1 + k, j1 + k + 1) for k in range(i2 - i1)]
-        for x1, x2, y1, y2 in blocks:
-            if lang == 'ko' and (x2 - x1 > 6 or y2 - y1 > 6):
+            if (i2 - i1) > 6 or (j2 - j1) > 6:
+                continue                  # 너무 긴 덩어리는 칠하면 지저분하다
+            if ' '.join(na[i1:i2]).strip() == ' '.join(nb[j1:j2]).strip():
                 continue
-            if ' '.join(na[x1:x2]).strip() == ' '.join(nb[y1:y2]).strip():
-                continue
-            out.append(((ta[x1][1], ta[x2 - 1][2]), (tb[y1][1], tb[y2 - 1][2])))
+            out.append(((ta[i1][1], ta[i2 - 1][2]), (tb[j1][1], tb[j2 - 1][2]), ga, gb))
         if len(out) >= limit:
             break
+    return out[:limit]
+
+
+# ── '뜻이 정말 다른 자리'만 남기는 거르개 ────────────────────────────────
+# 규칙: 뉘앙스·낱말 선택이 분명히 다른 곳만 칠한다.
+#       어미(-eth/-s/-ed)나 조동사·관사·전치사만 다른 자리는 칠하지 않는다.
+_ARCH_MAP = {
+    'thou': 'you', 'thee': 'you', 'thy': 'your', 'thine': 'your', 'ye': 'you',
+    'hath': 'have', 'hast': 'have', 'has': 'have', 'had': 'have',
+    'doth': 'do', 'dost': 'do', 'does': 'do', 'did': 'do',
+    'saith': 'say', 'sayeth': 'say', 'says': 'say', 'said': 'say',
+    'shalt': 'shall', 'wilt': 'will',
+    'art': 'be', 'is': 'be', 'are': 'be', 'was': 'be', 'were': 'be', 'am': 'be',
+    'been': 'be', 'being': 'be',
+    'unto': 'to', 'upon': 'on',
+    'brethren': 'brother', 'brothers': 'brother',
+    'children': 'child', 'men': 'man', 'women': 'woman',
+}
+
+_FUNC_EN = set('''
+a an the this that these those there here
+and or but nor for yet so as if then than when while because since though although
+of in on at to unto into onto from by with within without upon over under
+through throughout among between about against before after above below toward towards
+i me my mine we us our ours you your yours thou thee thy thine ye
+he him his she her hers it its they them their theirs one
+who whom whose which what where how why
+is are was were am be been being art
+have has had hath hast having
+do does did doth dost done
+shall will would should shalt wilt may might can could must let
+not no never none neither nothing
+all any some every each both very own same such other another
+o oh lo behold indeed also too only just even still now
+yea nay verily thus alas whether
+whoever whosoever whomever whatever whenever wherever
+everyone everybody anyone anybody someone somebody everything anything something
+'''.split())
+
+
+def _stem_en(w):
+    """아주 가벼운 어미 떼기. 어미만 다른 낱말을 같은 것으로 보기 위한 것."""
+    w = _ARCH_MAP.get(w, w)
+    if len(w) > 4 and w.endswith('eth'):
+        w = w[:-3]
+    elif len(w) > 4 and w.endswith('est'):
+        w = w[:-3]
+    elif len(w) > 4 and w.endswith('ing'):
+        w = w[:-3]
+    elif len(w) > 4 and w.endswith('ies'):
+        w = w[:-3] + 'y'
+    elif len(w) > 3 and w.endswith('ed'):
+        w = w[:-2]
+    elif len(w) > 4 and w.endswith('es'):
+        w = w[:-2]
+    elif len(w) > 3 and w.endswith('s') and not w.endswith('ss'):
+        w = w[:-1]
+    if len(w) > 3 and w[-1] == w[-2] and w[-1] in 'bdgklmnprt':
+        w = w[:-1]                      # running → runn → run
+    if len(w) > 2 and w.endswith('i'):
+        w = w[:-1] + 'y'                # cried → cri → cry
+    return _ARCH_MAP.get(w, w)
+
+
+def _content_set(s):
+    """기능어(관사·조동사·전치사·대명사)를 뺀 '알맹이 낱말' 모음."""
+    out = set()
+    for w in _norm_en(s).split():
+        w = w.replace("'", '')
+        w = _ARCH_MAP.get(w, w)
+        if not w or w in _FUNC_EN:
+            continue
+        w = _stem_en(w)
+        if w and w not in _FUNC_EN:
+            out.add(w)
     return out
 
 
-def _ko_heads(s):
-    """한국어 어절의 첫 음절 모음 — '문체만 바꾼 자리'를 걸러내는 데 쓴다."""
-    return set(w[0] for w in re.findall(r'[가-힣]+', s or ''))
+def _meaningful_en(sa, sb):
+    """두 표현이 '뜻·낱말 선택'까지 분명히 다른지.
+    어미·조동사·관사만 다르면 False (칠하지 않는다)."""
+    ca, cb = _content_set(sa), _content_set(sb)
+    if not ca and not cb:
+        return False                    # 양쪽 다 기능어뿐 → 조동사·관사 차이
+    if ca == cb:
+        return False                    # 알맹이 낱말이 같음 → 어미·문체만 다름
+    return True
 
 
-def _ko_style_only(sa, sb):
-    """'내게 부족함이 없으리로다' ↔ '나는 부족한 것이 없습니다'처럼
-    같은 낱말을 어미·문체만 바꿔 쓴 자리인지 판단한다."""
-    A, B = _ko_heads(sa), _ko_heads(sb)
-    if not A or not B:
-        return True
-    return len(A & B) / float(min(len(A), len(B))) >= 0.6
-
-
-def build_highlights(trans, diffs):
-    """하이라이트를 서버가 직접 만든다.
-    - 영어(NKJV↔NASB): 코드 대조로 '다른 자리'를 전부 찾고, AI가 준 짝을 더한다.
-    - 한국어(개역개정↔새번역): AI가 고른 짝을 우선 쓰고, 없으면 코드 대조 결과에서
-      '문체만 다른 자리'를 걸러내고 쓴다.
-    어느 경우든 결과는 반드시 양쪽 번역본에 '짝'으로 표시된다."""
-    for lang, a, b in PAIR_KEYS:
-        ta, tb = trans.get(a), trans.get(b)
-        if not isinstance(ta, str) or not isinstance(tb, str):
+def mark_rows_en(rows):
+    """절마다 NKJV↔NASB를 대조해 '뜻이 분명히 다른 자리'만 표시자로 감싼다.
+    (한국어 번역본은 칠하지 않는다 — 어미 차이가 너무 많아 어지럽기 때문)"""
+    for r in (rows or []):
+        if not isinstance(r, dict):
             continue
-        pa, pb = _plain(ta), _plain(tb)
-        norm = _norm_en if lang == 'en' else _norm_ko
-
-        ai_pairs = []
-        for it in (((diffs or {}).get(lang) or []) if isinstance(diffs, dict) else []):
-            if not isinstance(it, dict):
-                continue
-            sa = str(it.get(a) or '').strip()
-            sb = str(it.get(b) or '').strip()
-            if not sa or not sb or norm(sa) == norm(sb):
-                continue                      # 글자 그대로 같은 표현 → 버림
-            ra = _find_span(pa, sa, lang)
-            rb = _find_span(pb, sb, lang)
-            if ra[0] < 0 or rb[0] < 0:
-                continue                      # 한쪽이라도 본문에 없으면 짝이 깨지므로 버림
-            ai_pairs.append((ra, rb))
-
-        auto = auto_pairs(pa, pb, lang)
-        if lang == 'en':
-            pairs = ai_pairs + auto
-        else:
-            pairs = ai_pairs or [
-                p for p in auto
-                if not _ko_style_only(pa[p[0][0]:p[0][1]], pb[p[1][0]:p[1][1]])
-            ]
-
+        a = str(r.get('NKJV') or '').strip()
+        b = str(r.get('NASB') or '').strip()
+        if not a or not b:
+            continue
+        # 묶음 전체로도, 그 안의 한 자리로도 '뜻이 다르다'고 판정될 때만 칠한다
+        pairs = [(ra, rb) for ra, rb, ga, gb in auto_pairs(a, b)
+                 if _meaningful_en(ga, gb) and _meaningful_en(a[ra[0]:ra[1]], b[rb[0]:rb[1]])]
+        if not pairs:
+            continue
         # 양쪽 동시에 겹침 제거 → 한쪽만 남는 하이라이트가 생기지 않는다
         pairs.sort(key=lambda p: (p[0][0], p[1][0]))
         keep, la, lb = [], -1, -1
@@ -212,12 +241,13 @@ def build_highlights(trans, diffs):
                 continue
             keep.append((ra, rb))
             la, lb = ra[1], rb[1]
-            if len(keep) >= 16:
+            if len(keep) >= 8:
                 break
-
-        trans[a] = _wrap_ranges(pa, [k[0] for k in keep])
-        trans[b] = _wrap_ranges(pb, [k[1] for k in keep])
-    return trans
+        if not keep:
+            continue
+        r['NKJV'] = _wrap_ranges(a, [(ra[0], ra[1], b[rb[0]:rb[1]]) for ra, rb in keep])
+        r['NASB'] = _wrap_ranges(b, [(rb[0], rb[1], a[ra[0]:ra[1]]) for ra, rb in keep])
+    return rows
 
 
 def sb(method, path, data=None, silent=False):
@@ -748,6 +778,32 @@ def merge_ai_korean(rows, ai_verses, byv_ko):
     return rows, [k for k in AI_KO if k not in bad]
 
 
+def verify_phrases(data, sc):
+    """originals의 phrases가 '실제 본문에 그대로 있는 어구'인지 확인한다.
+    없는 어구는 지운다 — 엉뚱한 자리를 칠하는 것보다 안 칠하는 게 낫다."""
+    ko_all = ' '.join(str(r.get('개역한글') or '') for r in (sc or {}).get('rows', []))
+    en_all = ' '.join(str(r.get('NKJV') or '') for r in (sc or {}).get('rows', []))
+    en_low = en_all.lower()
+    for o in (data.get('originals') or []):
+        if not isinstance(o, dict):
+            continue
+        ph = o.get('phrases')
+        if not isinstance(ph, dict):
+            o.pop('phrases', None)
+            continue
+        ko = re.sub(r'\s+', ' ', str(ph.get('ko') or '')).strip()
+        en = re.sub(r'\s+', ' ', str(ph.get('en') or '')).strip()
+        if ko and ko not in re.sub(r'\s+', ' ', ko_all):
+            ko = ''
+        if en and en.lower() not in re.sub(r'\s+', ' ', en_low):
+            en = ''
+        if ko or en:
+            o['phrases'] = {'ko': ko, 'en': en}
+        else:
+            o.pop('phrases', None)
+    return data
+
+
 def rows_to_translations(rows):
     """절별 본문 배열 → 화면용 translations. 절 번호를 윗첨자로 붙여 그대로 이어 붙인다."""
     rows = [r for r in (rows or []) if isinstance(r, dict) and r.get('n')]
@@ -756,7 +812,7 @@ def rows_to_translations(rows):
     rows = sorted(rows, key=lambda r: r['n'])
     tr = {}
     for k in TR_KEYS:
-        parts = ['<sup class="vn">%d</sup>%s' % (r['n'], _esc(r.get(k)))
+        parts = ['<sup class="vn">%d</sup>%s' % (r['n'], mark_highlights(_esc(r.get(k))))
                  for r in rows if str(r.get(k) or '').strip()]
         if parts:
             tr[k] = ' '.join(parts)
@@ -935,6 +991,10 @@ PROMPT = '''성경 본문 "{passage}"를 분석해서 아래 JSON 형식으로�
       "reading": "음역 (예: 로이)",
       "korean": "해당하는 한국어 단어",
       "where": "★이 원어가 '이 본문 안에서' 나오는 자리. 반드시 절 번호와 그 자리의 한국어 표현을 함께 적어라. 예: 3절 '거룩하게 하시고' / 12절 '높이시며'. 여러 절에 나오면 쉼표로 두 곳까지.",
+      "phrases": {{
+        "ko": "★위에 준 개역한글 본문에서, 이 원어가 번역된 자리를 '글자 그대로' 오려낸 짧은 어구 (2~5어절)",
+        "en": "★위에 준 NKJV 본문에서, 같은 자리를 '글자 그대로' 오려낸 짧은 어구 (2~5 words)"
+      }},
       "meaning": "Strong's 사전에 실린 기본 뜻만 아주 짧게 (한 줄, 사전 뜻 나열)",
       "nuance": "★가장 중요한 칸★ 이 단어가 성경 전체에서 '실제로 어떻게 쓰이는지'를 2~3문장으로. 사전 뜻을 다시 말하지 말고, 그 뜻의 '결'을 설명하라 — 어느 정도의 강도인지, 무엇과 무엇을 갈라놓는 말인지, 주로 누가 누구에게 하는 동작인지, 비슷한 다른 원어와 어떻게 다른지.",
       "refs": [
@@ -969,6 +1029,7 @@ originals 규칙 (★영어단어 외우듯 '단어=뜻'으로 끝내지 마라.
 - 이 본문에서 가장 중요한 원어 딱 3개만.
 - Strong's 번호는 반드시 정확해야 한다 (블루레터바이블·바이블허브에서 검증 가능해야 하므로).
 - ★where는 반드시 채워라.★ 읽는 사람이 "몇 절 어느 단어가 이 원어인지"를 알아야 본문에서 찾을 수 있다. 절 번호 + 그 자리의 한국어 표현(개역한글 기준)을 꼭 같이 적어라. 절이 하나뿐인 본문이면 그 절 번호를 그대로 적어라.
+- ★phrases는 위에 주어진 본문에 '글자 그대로' 있는 어구여야 한다.★ 화면에서 그 자리를 찾아 표시하는 데 쓰므로, 한 글자라도 다르면 못 찾는다. 요약하거나 고쳐 쓰지 말고 본문에서 그대로 오려 붙여라. 확실하지 않으면 빈 문자열로 두어라.
 - meaning은 사전 뜻 한 줄로 짧게 끝내라. 설명은 nuance에서 한다.
 - nuance는 "그래서 이게 뭐가 다른데?"에 답해야 한다. 예를 들어 '거룩하게 하다'로 끝내지 말고, 카다쉬는 도덕적으로 깨끗해지는 말이 아니라 '보통의 자리에서 떼어 내어 하나님께 속하게 하는' 말이며 사람이 스스로 하는 게 아니라 하나님이 하시는 동작이 대부분이라는 식으로, 그 단어의 결을 드러내라.
 - ★refs는 반드시 2~3개 넣어라.★ 반드시 "이 본문이 아닌 다른 성경 구절"에서, "같은 Strong's 번호"가 쓰인 자리를 골라라. 유명하고 그림이 그려지는 장면을 우선하라 (예: H6942 카다쉬 → 창 2:3 일곱째 날, 출 3:5 거룩한 땅, 출 19:23 시내산 경계).
@@ -993,12 +1054,14 @@ def _prompt_slice(a, b):
 _STUDY_SCHEMA = _prompt_slice('  "words": [', '\n\nwords 규칙')
 _STUDY_RULES = _prompt_slice('words 규칙', '\nverses 규칙:')
 
-STUDY_PROMPT = ('''아래는 "{passage}"의 실제 성경 본문이다. 성경 본문 제공처에서 그대로 받아온 것이라
+_SC_HEAD = """아래는 "{passage}"의 실제 성경 본문이다. 성경 본문 제공처에서 그대로 받아온 것이라
 절 번호와 내용이 이미 정확하다. 이 본문 밖으로 나가지 마라.
 
 [실제 본문 — 절 번호. 개역한글 / NKJV]
 {text}
+"""
 
+_SC_VERSE_RULES = """
 ■ 절대 규칙
 - 위에 있는 절 번호만 쓴다. 위에 없는 절을 만들거나 이웃 장·절 내용을 끌어오면 오답이다.
 - 개역한글·NKJV·NASB 본문은 이미 확보했으니 다시 쓰지 마라.
@@ -1008,7 +1071,9 @@ STUDY_PROMPT = ('''아래는 "{passage}"의 실제 성경 본문이다. 성경 �
   둘을 똑같이 쓰지 말고 각 번역본의 실제 문장으로 적어라. 확실하지 않으면 빈 문자열로 두어라.
 
 아래 JSON 형식으로만 응답해줘. 코드블록 없이 JSON만.
+"""
 
+_SC_VERSES = """
 {{
   "verses": [
     {{
@@ -1017,7 +1082,32 @@ STUDY_PROMPT = ('''아래는 "{passage}"의 실제 성경 본문이다. 성경 �
       "새번역": "그 절의 새번역 본문 (그 절만)"
     }}
   ],
-''' + _STUDY_SCHEMA + '\n\n' + _STUDY_RULES + '\n추측하지 말고 확실한 것만. JSON만 출력.') \
+"""
+
+# ① 본문만 (개역개정·새번역). 화면에 제일 먼저 띄우는 부분이라 가장 빨라야 한다.
+TEXT_PROMPT = (_SC_HEAD + _SC_VERSE_RULES + _SC_VERSES.rstrip().rstrip(',') + """
+}}
+
+- 절 본문에는 아무 표시(별표·괄호·하이라이트)도 붙이지 마라. 그 번역본의 문장을 있는 그대로만 적어라.
+- 절 번호는 "n"에만 숫자로 적고, 본문 문자열 안에는 절 번호를 쓰지 마라.
+- verses 말고 다른 항목은 넣지 마라. 추측하지 말고 확실한 것만. JSON만 출력.""")
+
+# ② 단어·원어·소제목·배경만. 본문과 따로 돌려서 동시에 진행한다.
+STUDY_PROMPT = (_SC_HEAD + """
+■ 절대 규칙
+- 위에 있는 절 번호만 쓴다. 위에 없는 절을 만들거나 이웃 장·절 내용을 끌어오면 오답이다.
+- 번역본 본문(개역한글·개역개정·새번역·NKJV·NASB)은 이미 확보했으니 다시 쓰지 마라.
+  verses 항목은 넣지 마라. 단어·원어·소제목·배경만 적는다.
+
+아래 JSON 형식으로만 응답해줘. 코드블록 없이 JSON만.
+
+{{
+""" + _STUDY_SCHEMA + '\n\n' + _STUDY_RULES + '\n추측하지 말고 확실한 것만. JSON만 출력.') \
+    if (_STUDY_SCHEMA and _STUDY_RULES) else None
+
+# ③ 한 번에 다 (예전 방식). '내 기록'에서 옛 본문을 펼쳐 볼 때 등 한 번의 호출로 끝내야 할 때 쓴다.
+FULL_PROMPT = (_SC_HEAD + _SC_VERSE_RULES + _SC_VERSES
+               + _STUDY_SCHEMA + '\n\n' + _STUDY_RULES + '\n추측하지 말고 확실한 것만. JSON만 출력.') \
     if (_STUDY_SCHEMA and _STUDY_RULES) else None
 
 
@@ -1046,12 +1136,17 @@ DEFINE_PROMPT = '''아래 영어 단어들의 "영어사전 뜻"을 알려줘. �
 JSON만 출력.'''
 
 
-SCHEMA_VER = 18  # 분석 결과 형식 버전. 올리면 이전 캐시를 자동으로 무시하고 다시 분석함.
+SCHEMA_VER = 19  # 분석 결과 형식 버전. 올리면 이전 캐시를 자동으로 무시하고 다시 분석함.
 
 
-def _valid(d):
-    """분석 결과가 화면에 그릴 만큼 온전한지 (assemble()이 만든 translations가 있는지)."""
-    return isinstance(d, dict) and isinstance(d.get('translations'), dict) and len(d.get('translations')) > 0
+def _valid(d, stage='all'):
+    """분석 결과가 화면에 그릴 만큼 온전한지.
+    'study' 갈래는 본문이 없으니 단어나 원어가 있으면 온전한 것으로 본다."""
+    if not isinstance(d, dict):
+        return False
+    if stage == 'study':
+        return bool(d.get('words')) or bool(d.get('originals'))
+    return isinstance(d.get('translations'), dict) and len(d.get('translations')) > 0
 
 
 def extract_json(text):
@@ -1160,8 +1255,16 @@ class handler(BaseHTTPRequestHandler):
                 self._send_json({'error': 'empty', 'message': '본문을 입력해 주세요.'}, 400)
                 return
 
+            # ── 두 갈래로 나눠 부르기 ──────────────────────────────
+            # 'text'  = 번역본 본문만 (짧은 프롬프트라 훨씬 빨리 온다 → 화면에 먼저 띄운다)
+            # 'study' = 단어·원어·소제목·배경만 (본문을 읽는 동안 뒤에서 계속 분석)
+            # 'all'   = 예전처럼 한 번에 (‘내 기록’에서 옛 본문을 펼칠 때 등)
+            stage = str(body.get('stage') or 'all').strip()
+            if stage not in ('text', 'study', 'all'):
+                stage = 'all'
             key = normalize_key(passage)
-            qkey = urllib.parse.quote(key)
+            ckey = {'text': 'txt:', 'study': 'std:'}.get(stage, '') + key
+            qkey = urllib.parse.quote(ckey)
 
             # 1. 캐시 확인.
             #    SCHEMA_VER 14부터는 '절 단위 검증을 통과한 결과'만 저장되므로, 저장된 것은
@@ -1169,7 +1272,7 @@ class handler(BaseHTTPRequestHandler):
             #    body에 fresh=true가 오면(‘다시 분석’ 버튼) 캐시를 건너뛰고 새로 분석한다.
             cached = None if body.get('fresh') else \
                 sb('GET', 'analyses?passage_key=eq.' + qkey + '&select=data', silent=True)
-            if cached and _valid(cached[0].get('data')) and cached[0]['data'].get('v') == SCHEMA_VER:
+            if cached and _valid(cached[0].get('data'), stage) and cached[0]['data'].get('v') == SCHEMA_VER:
                 data = cached[0]['data']
                 data['cached'] = True
                 self._send_json(data)
@@ -1181,9 +1284,10 @@ class handler(BaseHTTPRequestHandler):
             #      개역개정·새번역은 (공개 API가 없어) AI가 쓰되 받아온 본문과 절 단위로 대조한다.
             #      AI는 그 밖에 단어·원어·배경 설명에만 쓴다.
             sc = fetch_scripture(passage)
-            if sc and STUDY_PROMPT:
+            if sc and FULL_PROMPT:
                 text = scripture_block(sc)
-                prompt = STUDY_PROMPT.format(passage=passage, text=text)
+                base = {'text': TEXT_PROMPT, 'study': STUDY_PROMPT}.get(stage) or FULL_PROMPT
+                prompt = base.format(passage=passage, text=text)
                 try:
                     data = call_ai_raw(prompt)
                 except (ValueError, json.JSONDecodeError):
@@ -1198,16 +1302,22 @@ class handler(BaseHTTPRequestHandler):
 
                 # 받아온 실제 본문에 AI가 쓴 개역개정·새번역을 붙이고 절 단위로 검증.
                 # 검증에 걸린 칸은 아예 빼 버린다 (틀린 본문보다 없는 게 낫다).
-                byv_ko = dict((r['n'], r.get('개역한글') or '') for r in sc['rows'])
-                rows, ko_ok = merge_ai_korean(sc['rows'], data.get('verses'), byv_ko)
-                tr = rows_to_translations(rows)
-                if not tr:
-                    raise RuntimeError('본문 조립 실패')
+                if stage != 'study':
+                    byv_ko = dict((r['n'], r.get('개역한글') or '') for r in sc['rows'])
+                    rows, ko_ok = merge_ai_korean(sc['rows'], data.get('verses'), byv_ko)
+                    # NKJV↔NASB에서 '뜻·낱말 선택이 분명히 다른 자리'만 표시 (어미·조동사 차이는 제외)
+                    rows = mark_rows_en(rows)
+                    tr = rows_to_translations(rows)
+                    if not tr:
+                        raise RuntimeError('본문 조립 실패')
 
-                data['translations'] = tr          # ★개역한글·NKJV·NASB는 받아온 그대로★
+                    data['translations'] = tr      # ★개역한글·NKJV·NASB는 받아온 그대로★
+                    data['verbatim'] = [k for k in VERBATIM if tr.get(k)]
+                    data['tr_got'] = sc['got'] + ko_ok
+                if stage != 'text':
+                    verify_phrases(data, sc)
                 data['source'] = 'bolls'
-                data['verbatim'] = [k for k in VERBATIM if tr.get(k)]
-                data['tr_got'] = sc['got'] + ko_ok
+                data['stage'] = stage
                 if isinstance(data.get('words'), list):
                     data['words'] = data['words'][:12]
                 data.pop('diffs', None)
@@ -1217,7 +1327,7 @@ class handler(BaseHTTPRequestHandler):
 
                 sb('DELETE', 'analyses?passage_key=eq.' + qkey, silent=True)
                 sb('POST', 'analyses',
-                   {'passage_key': key, 'passage': passage, 'data': data}, silent=True)
+                   {'passage_key': ckey, 'passage': passage, 'data': data}, silent=True)
                 data['cached'] = False
                 self._send_json(data)
                 return
@@ -1274,11 +1384,12 @@ class handler(BaseHTTPRequestHandler):
             data.pop('diffs', None)
             data.pop('verses', None)        # 조립이 끝났으면 원본 절 배열은 보낼 필요 없다
             data.pop('verses_rows', None)
+            data['stage'] = stage
             data['v'] = SCHEMA_VER   # 형식 버전 기록 (옛 캐시 자동 무효화용)
 
             # 3. 캐시 교체 저장 (예전/깨진 캐시가 있으면 지우고 새로 저장). 실패해도 응답엔 지장 없음.
             sb('DELETE', 'analyses?passage_key=eq.' + qkey, silent=True)
-            sb('POST', 'analyses', {'passage_key': key, 'passage': passage, 'data': data}, silent=True)
+            sb('POST', 'analyses', {'passage_key': ckey, 'passage': passage, 'data': data}, silent=True)
 
             data['cached'] = False
             self._send_json(data)
