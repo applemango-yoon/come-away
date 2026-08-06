@@ -218,14 +218,16 @@ def _meaningful_en(sa, sb):
     return True
 
 
-def mark_rows_en(rows):
-    """절마다 NKJV↔NASB를 대조해 '뜻이 분명히 다른 자리'만 표시자로 감싼다.
+def mark_rows_en(rows, a_key='NKJV', b_key='NASB'):
+    """절마다 영어 두 칸을 대조해 '뜻이 분명히 다른 자리'만 표시자로 감싼다.
     (한국어 번역본은 칠하지 않는다 — 어미 차이가 너무 많아 어지럽기 때문)"""
+    if not a_key or not b_key or a_key == b_key:
+        return rows                      # 영어를 한 칸만 골랐으면 대조할 짝이 없다
     for r in (rows or []):
         if not isinstance(r, dict):
             continue
-        a = str(r.get('NKJV') or '').strip()
-        b = str(r.get('NASB') or '').strip()
+        a = str(r.get(a_key) or '').strip()
+        b = str(r.get(b_key) or '').strip()
         if not a or not b:
             continue
         # 묶음 전체로도, 그 안의 한 자리로도 '뜻이 다르다'고 판정될 때만 칠한다
@@ -245,8 +247,8 @@ def mark_rows_en(rows):
                 break
         if not keep:
             continue
-        r['NKJV'] = _wrap_ranges(a, [(ra[0], ra[1], b[rb[0]:rb[1]]) for ra, rb in keep])
-        r['NASB'] = _wrap_ranges(b, [(rb[0], rb[1], a[ra[0]:ra[1]]) for ra, rb in keep])
+        r[a_key] = _wrap_ranges(a, [(ra[0], ra[1], b[rb[0]:rb[1]]) for ra, rb in keep])
+        r[b_key] = _wrap_ranges(b, [(rb[0], rb[1], a[ra[0]:ra[1]]) for ra, rb in keep])
     return rows
 
 
@@ -560,9 +562,42 @@ _BOOK_ORDER = [
 ]
 BOLLS_BOOK = dict((n, i + 1) for i, n in enumerate(_BOOK_ORDER))
 
-# 화면에 보여 줄 4개 칸 → bolls.life 번역본 코드
+# 고를 수 있는 번역본
 # ※ bolls의 'RNKSV'는 이름만 새번역이고 내용은 개역한글과 같아서 쓰지 않는다(직접 대조해 확인).
-BOLLS_TR = (('개역한글', 'KRV'), ('NKJV', 'NKJV'), ('NASB', 'NASB'))
+# 한국어는 개역한글만 '받아온 그대로'이고, 개역개정·새번역은 공개 API가 없어
+# AI가 쓰되 받아온 개역한글과 절 단위로 대조해 검증한다.
+KO_CHOICES = ('개역개정', '새번역', '개역한글')
+KO_VERBATIM = ('개역한글',)                      # 받아온 그대로인 한국어 칸
+EN_CHOICES = ('NIV', 'ESV', 'AMP', 'KJV', 'NKJV', 'NASB')
+EN_BOLLS = {'NIV': 'NIV', 'ESV': 'ESV', 'AMP': 'AMP',
+            'KJV': 'KJV', 'NKJV': 'NKJV', 'NASB': 'NASB'}
+DEF_KO = ('개역개정', '새번역')
+DEF_EN = ('NKJV', 'NASB')
+
+
+def pick_two(want, allowed, default):
+    """고른 번역본을 다듬는다. 모르는 이름·중복은 버리고, 비면 기본값. 최대 2개."""
+    out = []
+    for x in (want if isinstance(want, list) else []):
+        x = str(x or '').strip()
+        if x in allowed and x not in out:
+            out.append(x)
+        if len(out) >= 2:
+            break
+    return out or list(default)
+
+
+def norm_sel(body):
+    """요청에서 '고른 번역본'을 꺼낸다 → (한국어 목록, 영어 목록)."""
+    t = body.get('tr') if isinstance(body, dict) else None
+    t = t if isinstance(t, dict) else {}
+    return (pick_two(t.get('ko'), KO_CHOICES, DEF_KO),
+            pick_two(t.get('en'), EN_CHOICES, DEF_EN))
+
+
+def bolls_tr(en_list):
+    """실제로 받아올 것들. 개역한글은 검증의 '자'라서 늘 받아온다."""
+    return [('개역한글', 'KRV')] + [(e, EN_BOLLS[e]) for e in en_list if e in EN_BOLLS]
 
 _TAG = re.compile(r'<[^>]+>')
 _STRONG = re.compile(r'<S>\d+</S>', re.I)
@@ -601,8 +636,8 @@ def _bolls_chapter(tr_code, book_id, chapter):
     return out
 
 
-def fetch_scripture(passage):
-    """요청한 본문을 4개 번역본 '실제 문장 그대로' 받아온다.
+def fetch_scripture(passage, en_list=None):
+    """요청한 본문을 고른 번역본 '실제 문장 그대로' 받아온다.
     돌려주는 값: {'rows': [{'n':6, '개역한글':..., '새번역':..., 'NKJV':..., 'NASB':...}, ...],
                   'ref': '여호수아 4:6-8', 'got': ['NKJV', ...]}
     하나도 못 받으면 None."""
@@ -613,9 +648,10 @@ def fetch_scripture(passage):
     book_id = BOLLS_BOOK.get(book)
     if not book_id:
         return None
+    want = bolls_tr(list(en_list) if en_list else list(DEF_EN))
 
-    with ThreadPoolExecutor(max_workers=4) as ex:      # 4개 번역본 동시에 → 빠르게
-        futs = [(label, ex.submit(_bolls_chapter, code, book_id, ch)) for label, code in BOLLS_TR]
+    with ThreadPoolExecutor(max_workers=4) as ex:      # 여러 번역본 동시에 → 빠르게
+        futs = [(label, ex.submit(_bolls_chapter, code, book_id, ch)) for label, code in want]
         chapters = []
         for label, f in futs:
             try:
@@ -642,15 +678,16 @@ def fetch_scripture(passage):
         row = {'n': n}
         for label, d in chapters:
             row[label] = d.get(n, '')
-        if any(row[label] for label, _ in BOLLS_TR):
+        if any(row[label] for label, _ in want):
             rows.append(row)
     if not rows:
         return None
 
     r = passage.strip()
-    return {'rows': rows, 'ref': r, 'got': got,
+    en1 = (list(en_list) if en_list else list(DEF_EN))[0]
+    return {'rows': rows, 'ref': r, 'got': got, 'en': [e for e, _ in want[1:]], 'en1': en1,
             'nums': [x['n'] for x in rows],
-            'byv': dict((x['n'], x.get('NKJV') or x.get('NASB') or '') for x in rows)}
+            'byv': dict((x['n'], x.get(en1) or '') for x in rows)}
 
 
 def fetch_anchor(passage):
@@ -701,12 +738,9 @@ def _content_words(s):
     return set(x for x in w if len(x) > 2 and x not in _STOP_EN)
 
 
-# 화면에 보여 줄 칸 순서. NKJV·NASB는 '실제 본문 그대로'(VERBATIM).
-# 개역개정·새번역은 저작권 때문에 공개 API가 없어 AI가 쓰되, 실제로 받아온 개역한글과
-# 절 단위로 대조해 검증한다. (개역한글은 '자'로만 쓰고 화면에는 띄우지 않는다 — 번역본이 너무 많아짐)
-TR_KEYS = ('개역개정', '새번역', 'NKJV', 'NASB')
-VERBATIM = ('NKJV', 'NASB')
-AI_KO = ('개역개정', '새번역')
+# 예비 경로(본문 제공처가 응답하지 않을 때)에서 쓰는 기본 칸 순서.
+# 평소에는 사용자가 고른 번역본 목록(ko_list + en_list)이 이 자리를 대신한다.
+TR_KEYS = DEF_KO + DEF_EN
 
 
 def _vnum(x):
@@ -750,9 +784,13 @@ def ko_align_ok(text, byv_ko, n):
     return True
 
 
-def merge_ai_korean(rows, ai_verses, byv_ko):
-    """받아온 실제 본문 rows에 AI가 쓴 개역개정·새번역을 절 번호로 붙인다.
-    한 절이라도 검증에 걸리면 그 칸은 통째로 비운다 (틀린 본문을 보여 주느니 안 보여 준다)."""
+def merge_ai_korean(rows, ai_verses, byv_ko, ai_ko=None):
+    """받아온 실제 본문 rows에 AI가 쓴 한국어 번역본(개역개정·새번역)을 절 번호로 붙인다.
+    한 절이라도 검증에 걸리면 그 칸은 통째로 비운다 (틀린 본문을 보여 주느니 안 보여 준다).
+    개역한글은 이미 받아온 그대로라 여기서 건드리지 않는다."""
+    ai_ko = list(ai_ko) if ai_ko is not None else list(DEF_KO)
+    if not ai_ko:
+        return rows, []
     byn = {}
     for v in (ai_verses or []):
         if not isinstance(v, dict):
@@ -763,7 +801,7 @@ def merge_ai_korean(rows, ai_verses, byv_ko):
     bad = set()
     for r in rows:
         v = byn.get(r['n']) or {}
-        for k in AI_KO:
+        for k in ai_ko:
             t = re.sub(r'\s+', ' ', str(v.get(k) or '')).strip()
             if not t:
                 bad.add(k)
@@ -775,14 +813,15 @@ def merge_ai_korean(rows, ai_verses, byv_ko):
     for r in rows:
         for k in bad:
             r.pop(k, None)
-    return rows, [k for k in AI_KO if k not in bad]
+    return rows, [k for k in ai_ko if k not in bad]
 
 
-def verify_phrases(data, sc):
+def verify_phrases(data, sc, en1=None):
     """originals의 phrases가 '실제 본문에 그대로 있는 어구'인지 확인한다.
     없는 어구는 지운다 — 엉뚱한 자리를 칠하는 것보다 안 칠하는 게 낫다."""
     ko_all = ' '.join(str(r.get('개역한글') or '') for r in (sc or {}).get('rows', []))
-    en_all = ' '.join(str(r.get('NKJV') or '') for r in (sc or {}).get('rows', []))
+    en1 = en1 or (sc or {}).get('en1') or DEF_EN[0]
+    en_all = ' '.join(str(r.get(en1) or '') for r in (sc or {}).get('rows', []))
     en_low = en_all.lower()
     for o in (data.get('originals') or []):
         if not isinstance(o, dict):
@@ -804,14 +843,15 @@ def verify_phrases(data, sc):
     return data
 
 
-def rows_to_translations(rows):
-    """절별 본문 배열 → 화면용 translations. 절 번호를 윗첨자로 붙여 그대로 이어 붙인다."""
+def rows_to_translations(rows, order=None):
+    """절별 본문 배열 → 화면용 translations. 절 번호를 윗첨자로 붙여 그대로 이어 붙인다.
+    order = 화면에 보여 줄 칸 이름 순서 (고른 한국어 + 고른 영어)."""
     rows = [r for r in (rows or []) if isinstance(r, dict) and r.get('n')]
     if not rows:
         return None
     rows = sorted(rows, key=lambda r: r['n'])
     tr = {}
-    for k in TR_KEYS:
+    for k in (list(order) if order else list(TR_KEYS)):
         parts = ['<sup class="vn">%d</sup>%s' % (r['n'], mark_highlights(_esc(r.get(k))))
                  for r in rows if str(r.get(k) or '').strip()]
         if parts:
@@ -823,10 +863,11 @@ def scripture_block(sc):
     """AI에게 넘길 '실제 본문' 블록. AI는 이 본문만 보고 단어·원어·배경을 설명한다."""
     if not sc:
         return ''
+    en1 = sc.get('en1') or DEF_EN[0]
     lines = []
     for r in sc['rows'][:40]:
-        ko = r.get('개역한글') or r.get('새번역') or ''
-        en = r.get('NKJV') or r.get('NASB') or ''
+        ko = r.get('개역한글') or ''
+        en = r.get(en1) or ''
         lines.append('%d. %s / %s' % (r['n'], ko, en))
     return '\n'.join(lines)
 
@@ -1054,61 +1095,97 @@ def _prompt_slice(a, b):
 _STUDY_SCHEMA = _prompt_slice('  "words": [', '\n\nwords 규칙')
 _STUDY_RULES = _prompt_slice('words 규칙', '\nverses 규칙:')
 
-_SC_HEAD = """아래는 "{passage}"의 실제 성경 본문이다. 성경 본문 제공처에서 그대로 받아온 것이라
-절 번호와 내용이 이미 정확하다. 이 본문 밖으로 나가지 마라.
+# 고른 번역본에 맞춰 프롬프트를 그때그때 짓는다.
+# (개역한글과 고른 영어 번역본은 실제로 받아오므로, AI에게는 개역개정·새번역과
+#  단어·원어·배경만 시킨다.)
+_KO_HINT = {
+    '개역개정': '개역개정은 개역한글의 개정판이라 문장 뼈대는 비슷하되, 옛 표기·띄어쓰기·어려운 낱말이 현대 표기로 다듬어져 있다.',
+    '새번역': '새번역(표준새번역 개정)은 현대어체로 더 풀어 쓴다.',
+}
 
-[실제 본문 — 절 번호. 개역한글 / NKJV]
-{text}
-"""
 
-_SC_VERSE_RULES = """
+def _sc_head(en1):
+    """프롬프트 머리말 — 실제로 받아온 본문을 보여 주는 부분."""
+    return ('아래는 "{passage}"의 실제 성경 본문이다. 성경 본문 제공처에서 그대로 받아온 것이라\n'
+            '절 번호와 내용이 이미 정확하다. 이 본문 밖으로 나가지 마라.\n\n'
+            '[실제 본문 — 절 번호. 개역한글 / ' + str(en1) + ']\n'
+            '{text}\n')
+
+
+def _got_names(extra, en_list):
+    """이미 확보해 둔(=AI가 다시 쓸 필요 없는) 번역본 이름들."""
+    seen, out = set(), []
+    for k in (['개역한글'] + list(extra or []) + list(en_list or [])):
+        if k and k not in seen:
+            seen.add(k)
+            out.append(k)
+    return '·'.join(out)
+
+
+def _verse_rules(ai_ko, en_list):
+    """AI가 써야 할 한국어 번역본에 대한 규칙."""
+    names = '과 '.join(ai_ko)
+    hints = ' '.join(_KO_HINT[k] for k in ai_ko if k in _KO_HINT)
+    same = ('\n  둘을 똑같이 쓰지 말고 각 번역본의 실제 문장으로 적어라.' if len(ai_ko) > 1 else '')
+    return ("""
 ■ 절대 규칙
 - 위에 있는 절 번호만 쓴다. 위에 없는 절을 만들거나 이웃 장·절 내용을 끌어오면 오답이다.
-- 개역한글·NKJV·NASB 본문은 이미 확보했으니 다시 쓰지 마라.
-- verses에는 **개역개정과 새번역만** 적는다. 각 절의 내용은 위 같은 번호의 개역한글과
+- %s 본문은 이미 확보했으니 다시 쓰지 마라.
+- verses에는 **%s만** 적는다. 각 절의 내용은 위 같은 번호의 개역한글과
   같은 사건·같은 문장이어야 한다 (표기와 문체만 그 번역본의 것으로). 한 절이라도 밀려 쓰면 전부 버려진다.
-- 개역개정은 개역한글의 개정판이라 대체로 비슷하고, 새번역은 현대어체로 더 풀어 쓴다.
-  둘을 똑같이 쓰지 말고 각 번역본의 실제 문장으로 적어라. 확실하지 않으면 빈 문자열로 두어라.
+- %s%s 확실하지 않으면 빈 문자열로 두어라.
 
 아래 JSON 형식으로만 응답해줘. 코드블록 없이 JSON만.
-"""
+""" % (_got_names(None, en_list), names, hints, same))
 
-_SC_VERSES = """
-{{
-  "verses": [
-    {{
-      "n": 6,
-      "개역개정": "그 절의 개역개정 본문 (그 절만, 표시 없는 순수 본문)",
-      "새번역": "그 절의 새번역 본문 (그 절만)"
-    }}
-  ],
-"""
 
-# ① 본문만 (개역개정·새번역). 화면에 제일 먼저 띄우는 부분이라 가장 빨라야 한다.
-TEXT_PROMPT = (_SC_HEAD + _SC_VERSE_RULES + _SC_VERSES.rstrip().rstrip(',') + """
-}}
+def _sc_verses(ai_ko):
+    """verses 스키마 — 고른 한국어 번역본 칸만 넣는다."""
+    fields = ',\n'.join('      "%s": "그 절의 %s 본문 (그 절만, 표시 없는 순수 본문)"' % (k, k)
+                        for k in ai_ko)
+    return '\n{{\n  "verses": [\n    {{\n      "n": 6,\n' + fields + '\n    }}\n  ],\n'
 
-- 절 본문에는 아무 표시(별표·괄호·하이라이트)도 붙이지 마라. 그 번역본의 문장을 있는 그대로만 적어라.
-- 절 번호는 "n"에만 숫자로 적고, 본문 문자열 안에는 절 번호를 쓰지 마라.
-- verses 말고 다른 항목은 넣지 마라. 추측하지 말고 확실한 것만. JSON만 출력.""")
 
-# ② 단어·원어·소제목·배경만. 본문과 따로 돌려서 동시에 진행한다.
-STUDY_PROMPT = (_SC_HEAD + """
+def _study_head(ai_ko, en_list):
+    return ("""
 ■ 절대 규칙
 - 위에 있는 절 번호만 쓴다. 위에 없는 절을 만들거나 이웃 장·절 내용을 끌어오면 오답이다.
-- 번역본 본문(개역한글·개역개정·새번역·NKJV·NASB)은 이미 확보했으니 다시 쓰지 마라.
+- 번역본 본문(%s)은 이미 확보했으니 다시 쓰지 마라.
   verses 항목은 넣지 마라. 단어·원어·소제목·배경만 적는다.
 
 아래 JSON 형식으로만 응답해줘. 코드블록 없이 JSON만.
 
 {{
-""" + _STUDY_SCHEMA + '\n\n' + _STUDY_RULES + '\n추측하지 말고 확실한 것만. JSON만 출력.') \
-    if (_STUDY_SCHEMA and _STUDY_RULES) else None
+""" % _got_names(ai_ko, en_list))
 
-# ③ 한 번에 다 (예전 방식). '내 기록'에서 옛 본문을 펼쳐 볼 때 등 한 번의 호출로 끝내야 할 때 쓴다.
-FULL_PROMPT = (_SC_HEAD + _SC_VERSE_RULES + _SC_VERSES
-               + _STUDY_SCHEMA + '\n\n' + _STUDY_RULES + '\n추측하지 말고 확실한 것만. JSON만 출력.') \
-    if (_STUDY_SCHEMA and _STUDY_RULES) else None
+
+_VERSE_TAIL = """
+}}
+
+- 절 본문에는 아무 표시(별표·괄호·하이라이트)도 붙이지 마라. 그 번역본의 문장을 있는 그대로만 적어라.
+- 절 번호는 "n"에만 숫자로 적고, 본문 문자열 안에는 절 번호를 쓰지 마라.
+- verses 말고 다른 항목은 넣지 마라. 추측하지 말고 확실한 것만. JSON만 출력."""
+
+PROMPT_OK = bool(_STUDY_SCHEMA and _STUDY_RULES)
+
+
+def build_prompt(stage, ai_ko, en_list):
+    """stage(text/study/all) + 고른 번역본 → 프롬프트 한 덩이.
+    'text'인데 AI가 쓸 한국어 칸이 없으면 None (AI를 부를 필요가 없다)."""
+    if not PROMPT_OK:
+        return None
+    en_list = list(en_list) or list(DEF_EN)
+    ai_ko = list(ai_ko or [])
+    head = _sc_head(en_list[0])
+    study = (_STUDY_SCHEMA + '\n\n' + _STUDY_RULES).replace('NKJV/NASB', '/'.join(en_list)) \
+        + '\n추측하지 말고 확실한 것만. JSON만 출력.'
+    if stage == 'text':
+        if not ai_ko:
+            return None
+        return head + _verse_rules(ai_ko, en_list) + _sc_verses(ai_ko).rstrip().rstrip(',') + _VERSE_TAIL
+    if stage == 'study' or not ai_ko:
+        return head + _study_head(ai_ko, en_list) + study
+    return head + _verse_rules(ai_ko, en_list) + _sc_verses(ai_ko) + study
 
 
 DEFINE_PROMPT = '''아래 영어 단어들의 "영어사전 뜻"을 알려줘. 성경 해석이 아니라 표준 영어사전(옥스퍼드·메리엄웹스터 급) 기준이다.
@@ -1136,7 +1213,7 @@ DEFINE_PROMPT = '''아래 영어 단어들의 "영어사전 뜻"을 알려줘. �
 JSON만 출력.'''
 
 
-SCHEMA_VER = 19  # 분석 결과 형식 버전. 올리면 이전 캐시를 자동으로 무시하고 다시 분석함.
+SCHEMA_VER = 20  # 분석 결과 형식 버전. 올리면 이전 캐시를 자동으로 무시하고 다시 분석함.
 
 
 def _valid(d, stage='all'):
@@ -1262,8 +1339,21 @@ class handler(BaseHTTPRequestHandler):
             stage = str(body.get('stage') or 'all').strip()
             if stage not in ('text', 'study', 'all'):
                 stage = 'all'
+
+            # ── 고른 번역본 (내 기록 → 번역본 고르기) ────────────────
+            ko_list, en_list = norm_sel(body)
+            ai_ko = [k for k in ko_list if k not in KO_VERBATIM]   # AI가 써야 할 한국어 칸
+            order = list(ko_list) + list(en_list)                  # 화면 칸 순서
+            en1 = en_list[0]
+
             key = normalize_key(passage)
-            ckey = {'text': 'txt:', 'study': 'std:'}.get(stage, '') + key
+            # 캐시 이름표에 고른 번역본을 함께 넣는다 (사람마다 고른 게 다르므로).
+            # 단어·원어(study)는 개역한글과 '첫 영어 번역본'만 보고 만들어지므로 그것만 넣는다.
+            if stage == 'study':
+                ckey = 'std:%s:%s' % (en1, key)
+            else:
+                sel = '%s|%s' % (','.join(ko_list), ','.join(en_list))
+                ckey = ('txt:' if stage == 'text' else '') + sel + ':' + key
             qkey = urllib.parse.quote(ckey)
 
             # 1. 캐시 확인.
@@ -1283,20 +1373,22 @@ class handler(BaseHTTPRequestHandler):
             #      개역한글·NKJV·NASB는 성경 본문 제공처에서 그대로 받아 화면에 쓰고,
             #      개역개정·새번역은 (공개 API가 없어) AI가 쓰되 받아온 본문과 절 단위로 대조한다.
             #      AI는 그 밖에 단어·원어·배경 설명에만 쓴다.
-            sc = fetch_scripture(passage)
-            if sc and FULL_PROMPT:
+            sc = fetch_scripture(passage, en_list)
+            if sc and PROMPT_OK:
                 text = scripture_block(sc)
-                base = {'text': TEXT_PROMPT, 'study': STUDY_PROMPT}.get(stage) or FULL_PROMPT
-                prompt = base.format(passage=passage, text=text)
-                try:
-                    data = call_ai_raw(prompt)
-                except (ValueError, json.JSONDecodeError):
+                base = build_prompt(stage, ai_ko, en_list)
+                data = {}
+                if base:
+                    prompt = base.format(passage=passage, text=text)
                     try:
-                        data = call_ai_raw(prompt, strict=True)
+                        data = call_ai_raw(prompt)
+                    except (ValueError, json.JSONDecodeError):
+                        try:
+                            data = call_ai_raw(prompt, strict=True)
+                        except Exception:
+                            data = {}
                     except Exception:
                         data = {}
-                except Exception:
-                    data = {}
                 if not isinstance(data, dict):
                     data = {}
 
@@ -1304,20 +1396,21 @@ class handler(BaseHTTPRequestHandler):
                 # 검증에 걸린 칸은 아예 빼 버린다 (틀린 본문보다 없는 게 낫다).
                 if stage != 'study':
                     byv_ko = dict((r['n'], r.get('개역한글') or '') for r in sc['rows'])
-                    rows, ko_ok = merge_ai_korean(sc['rows'], data.get('verses'), byv_ko)
-                    # NKJV↔NASB에서 '뜻·낱말 선택이 분명히 다른 자리'만 표시 (어미·조동사 차이는 제외)
-                    rows = mark_rows_en(rows)
-                    tr = rows_to_translations(rows)
+                    rows, ko_ok = merge_ai_korean(sc['rows'], data.get('verses'), byv_ko, ai_ko)
+                    # 고른 영어 두 칸에서 '뜻·낱말 선택이 분명히 다른 자리'만 표시 (어미·조동사 차이는 제외)
+                    rows = mark_rows_en(rows, en_list[0], en_list[1] if len(en_list) > 1 else None)
+                    tr = rows_to_translations(rows, order)
                     if not tr:
                         raise RuntimeError('본문 조립 실패')
 
-                    data['translations'] = tr      # ★개역한글·NKJV·NASB는 받아온 그대로★
-                    data['verbatim'] = [k for k in VERBATIM if tr.get(k)]
+                    data['translations'] = tr      # ★개역한글과 영어 번역본은 받아온 그대로★
+                    data['verbatim'] = [k for k in (list(KO_VERBATIM) + list(en_list)) if tr.get(k)]
                     data['tr_got'] = sc['got'] + ko_ok
                 if stage != 'text':
-                    verify_phrases(data, sc)
+                    verify_phrases(data, sc, en1)
                 data['source'] = 'bolls'
                 data['stage'] = stage
+                data['tr'] = {'ko': list(ko_list), 'en': list(en_list)}
                 if isinstance(data.get('words'), list):
                     data['words'] = data['words'][:12]
                 data.pop('diffs', None)
@@ -1385,6 +1478,7 @@ class handler(BaseHTTPRequestHandler):
             data.pop('verses', None)        # 조립이 끝났으면 원본 절 배열은 보낼 필요 없다
             data.pop('verses_rows', None)
             data['stage'] = stage
+            data['tr'] = {'ko': list(DEF_KO), 'en': list(DEF_EN)}   # 예비 경로는 기본 칸
             data['v'] = SCHEMA_VER   # 형식 버전 기록 (옛 캐시 자동 무효화용)
 
             # 3. 캐시 교체 저장 (예전/깨진 캐시가 있으면 지우고 새로 저장). 실패해도 응답엔 지장 없음.
