@@ -986,7 +986,7 @@ def verify_phrases(data, sc, en1=None):
 
 
 def rows_to_translations(rows, order=None):
-    """절별 본문 배열 → 화면용 translations. 절 번호를 윗첨자로 붙여 그대로 이어 붙인다.
+    """절별 본문 배열 → 화면용 translations. 절 번호를 윗첨자로 붙이고 절마다 줄을 바꾼다.
     order = 화면에 보여 줄 칸 이름 순서 (고른 한국어 + 고른 영어)."""
     rows = [r for r in (rows or []) if isinstance(r, dict) and r.get('n')]
     if not rows:
@@ -997,7 +997,7 @@ def rows_to_translations(rows, order=None):
         parts = ['<sup class="vn">%d</sup>%s' % (r['n'], mark_highlights(_esc(r.get(k))))
                  for r in rows if str(r.get(k) or '').strip()]
         if parts:
-            tr[k] = ' '.join(parts)
+            tr[k] = ' <br>'.join(parts)      # 절마다 줄을 바꿔서 보여 준다
     return tr or None
 
 
@@ -1016,7 +1016,7 @@ def scripture_block(sc):
 
 def assemble(data):
     """AI가 준 verses(절별 배열) → 화면용 translations.
-    절 번호를 윗첨자로 붙여 그대로 이어 붙인다 (하이라이트 없음, 본문 그대로)."""
+    절 번호를 윗첨자로 붙이고 절마다 줄을 바꾼다 (하이라이트 없음, 본문 그대로)."""
     vs = (data or {}).get('verses')
     if not isinstance(vs, list) or not vs:
         return None
@@ -1039,7 +1039,7 @@ def assemble(data):
     for k in TR_KEYS:
         parts = ['<sup class="vn">%d</sup>%s' % (r['n'], _esc(r[k])) for r in rows if r[k]]
         if parts:
-            tr[k] = ' '.join(parts)
+            tr[k] = ' <br>'.join(parts)      # 절마다 줄을 바꿔서 보여 준다
     return {'rows': rows, 'translations': tr} if tr else None
 
 
@@ -1356,7 +1356,7 @@ DEFINE_PROMPT = '''아래 영어 단어들의 "영어사전 뜻"을 알려줘. �
 JSON만 출력.'''
 
 
-SCHEMA_VER = 22  # 분석 결과 형식 버전. 올리면 이전 캐시를 자동으로 무시하고 다시 분석함.
+SCHEMA_VER = 23  # 분석 결과 형식 버전. 올리면 이전 캐시를 자동으로 무시하고 다시 분석함.
 
 
 def _valid(d, stage='all'):
