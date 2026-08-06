@@ -647,7 +647,7 @@ textarea:focus{border-color:var(--green)}
   </div>
   <div class="card">
     <div class="card-title">📖 오늘의 본문</div>
-    <input type="text" id="passage" placeholder="예: 요한복음 3:16 · 마태복음 4장 · 시편 23편 1-3절" onkeydown="if(event.key==='Enter')analyze()">
+    <input type="text" id="passage" placeholder="예: 요한복음 3:16 · 시편 23편 1-3절 · 요한복음 3:7, 16-17" onkeydown="if(event.key==='Enter')analyze()">
     <button class="btn btn-primary" id="analyze-btn" onclick="analyze()">분석하기</button>
     <div class="cache-note" id="cache-note">⚡ 이미 분석해 둔 본문이라 바로 불러왔어요. <button class="refresh-btn" onclick="analyze(true)">다시 분석</button></div>
   </div>
@@ -2818,6 +2818,6 @@ if('serviceWorker' in navigator) navigator.serviceWorker.register('/sw.js').catc
   <button id="tts-pause" onclick="ttsPause()">⏸ 잠깐</button>
   <button onclick="ttsStop()">⏹ 그만</button>
 </div>
-<!-- build:v21 -->
+<!-- build:v22 -->
 </body>
 </html>
