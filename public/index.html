@@ -99,6 +99,18 @@ textarea:focus{border-color:var(--green)}
 
 /* ── 분석 결과 ── */
 .result-area{display:none}
+/* ── 넓은 화면: 왼쪽(분석)은 스크롤, 오른쪽(묵상 기록)은 화면에 붙어 따라온다 ── */
+.split-l{min-width:0}
+@media(min-width:1024px){
+  .split.on{display:flex;gap:20px;align-items:flex-start}
+  .split.on>.split-l{flex:1 1 0;min-width:0}
+  .split.on>.split-r{flex:0 0 402px;position:sticky;top:var(--stick-top,86px);max-height:calc(100vh - var(--stick-top,86px) - 16px);overflow-y:auto;overscroll-behavior:contain}
+  .split.on>.split-r>.card{margin-bottom:0}
+  .split.on>.split-r::-webkit-scrollbar{width:8px}
+  .split.on>.split-r::-webkit-scrollbar-thumb{background:var(--line);border-radius:4px}
+  .split.on>.split-r::-webkit-scrollbar-track{background:transparent}
+}
+@media(min-width:1400px){.split.on>.split-r{flex:0 0 440px}}
 .card.fold>.card-title{cursor:pointer;user-select:none}
 .fold-ar{margin-left:auto;color:var(--green);font-size:calc(14px * var(--fs));transition:transform .2s;line-height:1}
 .card.folded>.card-title{margin-bottom:0;padding-bottom:0;border-bottom:none}
@@ -652,6 +664,8 @@ textarea:focus{border-color:var(--green)}
     <button class="btn btn-primary" id="analyze-btn" onclick="analyze()">분석하기</button>
     <div class="cache-note" id="cache-note">⚡ 이미 분석해 둔 본문이라 바로 불러왔어요. <button class="refresh-btn" onclick="analyze(true)">다시 분석</button></div>
   </div>
+  <div class="split" id="study-split">
+  <div class="split-l">
   <div class="result-area" id="result-area">
     <div class="card fold" id="fold-trans">
       <div class="card-title" onclick="toggleFold('trans')">📚 번역본 비교<span class="fold-ar">▾</span></div>
@@ -674,7 +688,9 @@ textarea:focus{border-color:var(--green)}
     </div>
     <button class="flash-btn" style="background:var(--terra);box-shadow:0 3px 0 var(--terra-d)" onclick="copyAnalysis()">📋 이 분석을 노션에 복사</button>
   </div>
-  <div class="card">
+  </div>
+  <div class="split-r">
+  <div class="card" id="memo-card">
     <div class="card-title">✍️ 오늘의 묵상 기록</div>
     <div class="field">
       <label class="fl">묵상 내용</label>
@@ -697,6 +713,8 @@ textarea:focus{border-color:var(--green)}
     <label class="pubrow"><input type="checkbox" id="pub-check" checked> <span>광장에 공개하기 <span style="opacity:.6;font-size:calc(11px * var(--fs))">(끄면 나만 볼 수 있어요)</span></span></label>
     <button class="btn btn-primary" onclick="saveEntry()">기록 저장</button>
     <button class="btn btn-kakao" id="share-btn" style="display:none" onclick="shareKakao()">카카오톡에 공유하기</button>
+  </div>
+  </div>
   </div>
 </div>
 
@@ -1140,6 +1158,26 @@ function showTab(name) {
   if(name==='plaza' || name==='my' || name==='admin') loadDashboard();
 }
 
+/* ── 넓은 화면에서 '왼쪽 분석 / 오른쪽 묵상 기록' 두 칸 배치 ──
+   분석 결과가 있을 때만 켠다. 좁은 화면(1024px 미만)에서는 CSS가 무시하므로 예전 그대로 위아래로 쌓인다. */
+function splitOn(){
+  const sp = document.getElementById('study-split');
+  if(sp) sp.classList.add('on');
+  syncStickTop();
+}
+function splitOff(){
+  const sp = document.getElementById('study-split');
+  if(sp) sp.classList.remove('on');
+}
+/* 위에 붙어 있는 머리띠(헤더+탭) 높이만큼 아래에서 시작하게 맞춘다 */
+function syncStickTop(){
+  const bar = document.querySelector('.topbar');
+  const h = bar ? bar.getBoundingClientRect().height : 72;
+  document.documentElement.style.setProperty('--stick-top', Math.round(h + 14) + 'px');
+}
+window.addEventListener('resize', syncStickTop);
+window.addEventListener('load', syncStickTop);
+
 /* ── AI 분석 ── */
 async function analyze(fresh) {
   const passage = document.getElementById('passage').value.trim();
@@ -1154,6 +1192,7 @@ async function analyze(fresh) {
     btn.innerHTML = '<span class="spinner"></span>' + steps[si];
   }, 4000);
   document.getElementById('result-area').style.display = 'none';
+  splitOff();
   document.getElementById('share-btn').style.display = 'none';
   document.getElementById('cache-note').style.display = 'none';
   isSaved = false;
@@ -1367,6 +1406,7 @@ function renderText(data) {
   }
   const area = document.getElementById('result-area');
   area.style.display = 'block';
+  splitOn();
   area.scrollIntoView({behavior:'smooth'});
 }
 
@@ -2820,6 +2860,6 @@ if('serviceWorker' in navigator) navigator.serviceWorker.register('/sw.js').catc
   <button id="tts-pause" onclick="ttsPause()">⏸ 잠깐</button>
   <button onclick="ttsStop()">⏹ 그만</button>
 </div>
-<!-- build:v23 -->
+<!-- build:v24 -->
 </body>
 </html>
