@@ -156,6 +156,17 @@ textarea:focus{border-color:var(--green)}
 .orig-card{border:2px solid var(--line-l);border-radius:12px;padding:16px 18px;margin-bottom:12px;background:var(--soft-yellow);border-left:5px solid var(--terra)}
 .orig-word{font-size:calc(21px * var(--fs));font-weight:700;color:var(--terra-d);margin-bottom:2px}
 .orig-word span{font-size:calc(12px * var(--fs));color:var(--ink2);font-weight:400;margin-left:8px}
+.orig-core{font-size:calc(14.5px * var(--fs));color:var(--ink);line-height:1.85;background:var(--cream);border:1.5px dashed var(--terra-l);border-radius:10px;padding:8px 11px;margin:2px 0 8px}
+.orig-core b{font-family:'Jua',sans-serif;font-weight:400;color:var(--terra-d);margin-right:6px;white-space:nowrap}
+.orig-core i{font-style:normal;color:var(--terra-d);font-weight:700}
+.orig-senses{margin:8px 0 6px;background:var(--cream);border:1.5px solid var(--line-l);border-radius:10px;padding:9px 12px}
+.orig-senses-t{font-size:calc(11.5px * var(--fs));color:var(--green-d);font-weight:700;margin-bottom:6px}
+.orig-sense{display:flex;gap:8px;margin-bottom:7px}
+.orig-sense:last-child{margin-bottom:0}
+.orig-sense-n{flex:0 0 auto;font-family:'Jua',sans-serif;color:var(--terra-d);font-size:calc(13px * var(--fs));line-height:1.75}
+.orig-sense-b{min-width:0}
+.orig-sense-en{font-size:calc(14px * var(--fs));color:var(--ink);font-weight:700;line-height:1.7}
+.orig-sense-ko{font-size:calc(13.5px * var(--fs));color:var(--ink2);line-height:1.7}
 .orig-mean{font-size:calc(15.5px * var(--fs));color:var(--ink2);line-height:1.85}
 .orig-where{display:inline-block;font-size:calc(11.5px * var(--fs));color:var(--terra-d);background:var(--cream);border:1.5px solid var(--terra-l);border-radius:999px;padding:2px 10px;margin:4px 0 6px;font-weight:700}
 .orig-nuance{font-size:calc(14.5px * var(--fs));color:var(--ink);line-height:1.9;margin-top:9px;padding-top:9px;border-top:1px dashed var(--line)}
@@ -671,7 +682,7 @@ textarea:focus{border-color:var(--green)}
       <div class="card-title" onclick="toggleFold('trans')">📚 번역본 비교<span class="fold-ar">▾</span></div>
       <div class="fold-body">
         <table class="trans-table"><tbody id="trans-body"></tbody></table>
-        <div class="hl-note" id="hl-note" style="display:none"><b>노란 칠</b>은 <span id="hl-note-names">NKJV와 NASB</span>가 <b>같은 자리를 다른 낱말로</b> 옮긴 곳이에요. (마우스를 올리거나 길게 누르면 상대 번역본의 표현이 보여요) 어미·조동사만 다른 곳은 칠하지 않았어요.</div>
+        <div class="hl-note" id="hl-note" style="display:none"><b>노란 칠</b>은 <span id="hl-note-names">NKJV와 ESV</span>가 <b>같은 자리를 다른 낱말로</b> 옮긴 곳이에요. (마우스를 올리거나 길게 누르면 상대 번역본의 표현이 보여요) 어미·조동사만 다른 곳은 칠하지 않았어요.</div>
       </div>
     </div>
     <div class="card fold" id="fold-words">
@@ -1251,7 +1262,7 @@ async function analyze(fresh) {
 /* ── 📖 고른 번역본 (이 기기에만 저장) ── */
 var KO_CHOICES = ['개역개정','새번역','개역한글'];
 var EN_CHOICES = ['NIV','ESV','AMP','KJV','NKJV','NASB'];
-var TR_DEF = {ko:['개역개정','새번역'], en:['NKJV','NASB']};
+var TR_DEF = {ko:['개역개정','새번역'], en:['NKJV','ESV']};
 var TR_KEY = 'ca_tr';
 function _pick2(want, allowed, def){
   var out = [];
@@ -1435,10 +1446,27 @@ function renderStudy(data) {
     const spk = o.original ? `<button class="tts-btn" title="원어로 듣기" onclick="speak('${jsq(o.original)}','${lang}')">🔊</button>` : '';
     const refs = Array.isArray(o.refs) ? o.refs.filter(r => r && (r.ref || r.phrase)) : [];
     const refHtml = refs.length ? `<div class="orig-refs">
-        <div class="orig-refs-t">📖 다른 본문에서는 이렇게 쓰여요</div>
+        <div class="orig-refs-t">📖 같은 원어가 여기에도 쓰여요</div>
         ${refs.map(r => `<div class="orig-ref">
           <div class="orig-ref-h"><b>${esc(r.ref||'')}</b>${r.phrase?` <span>“${esc(r.phrase)}”</span>`:''}</div>
           ${r.note?`<div class="orig-ref-n">→ ${esc(r.note)}</div>`:''}
+        </div>`).join('')}
+      </div>` : '';
+    const coreTxt = String(o.core||'').trim();
+    // "영어 구절 — 한국어 풀이" 형태면 영어 쪽을 진하게 보여 준다
+    const coreM = coreTxt ? coreTxt.match(/^(.+?)\s*[—–-]\s*(.+)$/) : null;
+    const core = coreTxt
+      ? `<div class="orig-core"><b>🌱 뿌리 뜻</b> ${coreM ? `<i>${esc(coreM[1])}</i> — ${esc(coreM[2])}` : esc(coreTxt)}</div>`
+      : '';
+    const sensesArr = (Array.isArray(o.senses) ? o.senses : []).filter(x => x && (x.en || x.ko));
+    const senses = sensesArr.length ? `<div class="orig-senses">
+        <div class="orig-senses-t">📚 사전에 실린 뜻 (Thayer's · BDB · Strong's)</div>
+        ${sensesArr.map((x,k) => `<div class="orig-sense">
+          <div class="orig-sense-n">${esc(String(x.n||k+1))}.</div>
+          <div class="orig-sense-b">
+            ${x.en?`<div class="orig-sense-en">${esc(x.en)}</div>`:''}
+            ${x.ko?`<div class="orig-sense-ko">${esc(x.ko)}</div>`:''}
+          </div>
         </div>`).join('')}
       </div>` : '';
     const nuance = o.nuance ? `<div class="orig-nuance"><b>결·뉘앙스</b> ${esc(o.nuance)}</div>` : '';
@@ -1449,6 +1477,8 @@ function renderStudy(data) {
     return `<div class="orig-card">
       <div class="orig-word">${esc(o.original||'')}${spk}<span>${esc(o.reading||'')}${o.korean?' · '+esc(o.korean):''}</span></div>
       ${o.where?`<div class="orig-where">📍 ${esc(o.where)}</div>`:''}
+      ${core}
+      ${senses}
       <div class="orig-mean">${esc(o.meaning||'')}</div>
       ${nuance}
       ${refHtml}
@@ -2013,7 +2043,9 @@ async function toggleScrip(id) {
   scripCache[passage] = data;
 
   const tr = (data.translations && typeof data.translations === 'object') ? data.translations : {};
-  const rows = ['개역개정','새번역','NKJV','NASB'].map(v =>
+  const seen = {};
+  const order = trOrder().concat(Object.keys(tr)).filter(v => (v && !seen[v]) ? (seen[v]=1) : false);
+  const rows = order.map(v =>
     tr[v] ? `<tr><td>${v}</td><td>${tr[v]}</td></tr>` : ''
   ).join('');
   body.innerHTML = rows
@@ -2714,9 +2746,11 @@ function copyAnalysis() {
   const d = lastAnalysis;
   const passage = document.getElementById('passage').value.trim();
   let md = `# 📖 ${passage || '성경 분석'}\n\n## 번역본 비교\n`;
-  ['개역개정','새번역','NKJV','NASB'].forEach(v => {
-    if(d.translations && d.translations[v]) md += `**${v}** ${stripHl(d.translations[v])}\n\n`;
-  });
+  const trAll = (d.translations && typeof d.translations === 'object') ? d.translations : {};
+  const seenTr = {};
+  ((lastOrder && lastOrder.length ? lastOrder : trOrder()).concat(Object.keys(trAll)))
+    .filter(v => (v && !seenTr[v]) ? (seenTr[v]=1) : false)
+    .forEach(v => { if(trAll[v]) md += `**${v}** ${stripHl(trAll[v])}\n\n`; });
   if((d.words||[]).length) {
     md += `## 핵심 단어\n`;
     d.words.forEach(w => {
@@ -2729,6 +2763,11 @@ function copyAnalysis() {
     d.originals.forEach(o => {
       md += `- **${o.original} (${o.reading||''})** ${o.korean||''} — ${o.meaning||''}\n`;
       if(o.where) md += `  - 📍 ${o.where}\n`;
+      if(o.core) md += `  - 🌱 뿌리 뜻: ${o.core}\n`;
+      (Array.isArray(o.senses)?o.senses:[]).forEach((x,k) => {
+        if(!x || (!x.en && !x.ko)) return;
+        md += `  - ${x.n||k+1}. ${x.en||''}${x.ko?` — ${x.ko}`:''}\n`;
+      });
       if(o.nuance) md += `  - 결·뉘앙스: ${o.nuance}\n`;
       (Array.isArray(o.refs)?o.refs:[]).forEach(r => {
         if(!r) return;
@@ -2860,6 +2899,6 @@ if('serviceWorker' in navigator) navigator.serviceWorker.register('/sw.js').catc
   <button id="tts-pause" onclick="ttsPause()">⏸ 잠깐</button>
   <button onclick="ttsStop()">⏹ 그만</button>
 </div>
-<!-- build:v24 -->
+<!-- build:v28 -->
 </body>
 </html>
