@@ -110,6 +110,9 @@ textarea:focus{border-color:var(--green)}
 .trans-table tr:last-child td{border-bottom:none}
 .hl{background:var(--soft-yellow);padding:1px 5px;border-radius:6px;color:var(--terra-d);font-weight:700;cursor:help;border-bottom:1px dotted var(--terra-d)}
 .oh{background:var(--green-l);padding:1px 5px;border-radius:6px;color:var(--green-d);font-weight:700;box-shadow:0 0 0 1px var(--green) inset}
+.tr-row{display:flex;gap:8px}
+.tr-row select{flex:1;min-width:0;padding:9px 10px;border:1.5px solid var(--line);border-radius:12px;background:var(--cream);color:var(--ink);font-family:'Gowun Dodum',sans-serif;font-size:calc(13.5px * var(--fs))}
+.tr-row select:focus{outline:none;border-color:var(--green)}
 .hl-note{font-size:calc(11.5px * var(--fs));color:var(--ink2);margin-top:10px;line-height:1.7}
 .hl-note b{color:var(--terra-d)}
 .wait-badge{display:none;font-family:'Gowun Dodum',sans-serif;font-size:calc(11px * var(--fs));color:var(--green-d);background:var(--green-l);border-radius:999px;padding:2px 9px;margin-left:7px;font-weight:700;vertical-align:middle}
@@ -653,7 +656,7 @@ textarea:focus{border-color:var(--green)}
       <div class="card-title" onclick="toggleFold('trans')">📚 번역본 비교<span class="fold-ar">▾</span></div>
       <div class="fold-body">
         <table class="trans-table"><tbody id="trans-body"></tbody></table>
-        <div class="hl-note" id="hl-note" style="display:none"><b>노란 칠</b>은 NKJV와 NASB가 <b>같은 자리를 다른 낱말로</b> 옮긴 곳이에요. (마우스를 올리거나 길게 누르면 상대 번역본의 표현이 보여요) 어미·조동사만 다른 곳은 칠하지 않았어요.</div>
+        <div class="hl-note" id="hl-note" style="display:none"><b>노란 칠</b>은 <span id="hl-note-names">NKJV와 NASB</span>가 <b>같은 자리를 다른 낱말로</b> 옮긴 곳이에요. (마우스를 올리거나 길게 누르면 상대 번역본의 표현이 보여요) 어미·조동사만 다른 곳은 칠하지 않았어요.</div>
       </div>
     </div>
     <div class="card fold" id="fold-words">
@@ -731,6 +734,18 @@ textarea:focus{border-color:var(--green)}
       <button class="backup-btn" onclick="downloadMyBackup()">⬇ 내 기록 백업 (JSON)</button>
       <button class="backup-btn" id="full-backup-btn" style="display:none" onclick="downloadFullBackup()">⬇ 전체 백업 (관리자)</button>
     </div>
+  </div>
+  <div class="card">
+    <div class="card-title">📖 번역본 고르기</div>
+    <p style="font-size:calc(12px * var(--fs));color:var(--ink2);line-height:1.6;margin-bottom:10px">본문을 볼 때 나란히 놓을 <b>한국어 2개 · 영어 2개</b>를 고를 수 있어요. 고른 건 이 기기에만 저장되고, 다음 분석부터 바로 반영돼요.</p>
+    <div class="tr-pick">
+      <label class="modal-label">한국어</label>
+      <div class="tr-row"><select id="tr-ko0" onchange="saveTrSel('ko',0)"></select><select id="tr-ko1" onchange="saveTrSel('ko',1)"></select></div>
+      <label class="modal-label" style="margin-top:8px">영어</label>
+      <div class="tr-row"><select id="tr-en0" onchange="saveTrSel('en',0)"></select><select id="tr-en1" onchange="saveTrSel('en',1)"></select></div>
+    </div>
+    <p style="font-size:calc(11.5px * var(--fs));color:var(--ink2);line-height:1.7;margin-top:10px">개역한글과 영어 번역본은 <b>성경 본문 제공처에서 받아온 원문 그대로</b>예요. 개역개정·새번역은 공개된 본문 제공처가 없어서 <b>받아온 개역한글과 절 단위로 대조해 검증한 뒤</b>에만 보여 드려요.</p>
+    <div id="tr-note" style="font-size:calc(11.5px * var(--fs));color:var(--green-d);margin-top:8px"></div>
   </div>
   <div class="card">
     <div class="card-title">📇 내 단어장 <span style="font-family:'Gowun Dodum';font-size:calc(12px * var(--fs))" id="vocab-count"></span></div>
@@ -1146,8 +1161,9 @@ async function analyze(fresh) {
 
   /* 본문(text)과 단어·원어(study)를 동시에 부른다.
      본문이 먼저 오면 바로 펼쳐서 읽을 수 있게 하고, 단어·원어는 접힌 채로 뒤에서 계속 받아온다. */
+  const tr = {ko: trSel.ko.slice(), en: trSel.en.slice()};
   const post = (stage) => apiFetch('/api/analyze', {method:'POST', headers:{'Content-Type':'application/json'},
-      body: JSON.stringify(fresh===true ? {passage, stage, fresh:true} : {passage, stage})}).then(r => r.json());
+      body: JSON.stringify(fresh===true ? {passage, stage, tr, fresh:true} : {passage, stage, tr})}).then(r => r.json());
   const pText  = post('text');
   const pStudy = post('study').catch(e => ({error:'study', message:e && e.message}));
 
@@ -1192,9 +1208,65 @@ async function analyze(fresh) {
   }
 }
 
+/* ── 📖 고른 번역본 (이 기기에만 저장) ── */
+var KO_CHOICES = ['개역개정','새번역','개역한글'];
+var EN_CHOICES = ['NIV','ESV','AMP','KJV','NKJV','NASB'];
+var TR_DEF = {ko:['개역개정','새번역'], en:['NKJV','NASB']};
+var TR_KEY = 'ca_tr';
+function _pick2(want, allowed, def){
+  var out = [];
+  (Array.isArray(want) ? want : []).forEach(function(x){
+    x = String(x==null?'':x).trim();
+    if(allowed.indexOf(x) >= 0 && out.indexOf(x) < 0 && out.length < 2) out.push(x);
+  });
+  return out.length ? out : def.slice();
+}
+function loadTrSel(){
+  var t = null;
+  try { t = JSON.parse(localStorage.getItem(TR_KEY) || 'null'); } catch(e) {}
+  t = (t && typeof t === 'object') ? t : {};
+  return {ko:_pick2(t.ko, KO_CHOICES, TR_DEF.ko), en:_pick2(t.en, EN_CHOICES, TR_DEF.en)};
+}
+var trSel = loadTrSel();
+function trOrder(){ return trSel.ko.concat(trSel.en); }
+function isEnTr(name){ return trSel.en.indexOf(name) >= 0; }
+
+/* 고르는 칸을 그린다. 같은 언어 안에서 같은 번역본을 두 번 고를 수 없게 막는다. */
+function paintTrPick(){
+  [['ko', KO_CHOICES], ['en', EN_CHOICES]].forEach(function(pair){
+    var lang = pair[0], all = pair[1];
+    [0,1].forEach(function(i){
+      var sel = document.getElementById('tr-' + lang + i);
+      if(!sel) return;
+      var mine = trSel[lang][i] || '';
+      sel.innerHTML = all.map(function(v){
+        return '<option value="' + v + '"' + (v === mine ? ' selected' : '') + '>' + v + '</option>';
+      }).join('');
+    });
+  });
+  var n = document.getElementById('tr-note');
+  if(n) n.textContent = '지금 보고 있는 순서: ' + trOrder().join(' · ');
+}
+function saveTrSel(lang, i){
+  if(lang){
+    var sel = document.getElementById('tr-' + lang + i);
+    var v = sel ? sel.value : '';
+    var mine = trSel[lang][i] || '';
+    if(v && v === (trSel[lang][1-i] || '')) trSel[lang][1-i] = mine;   // 이미 옆 칸에 있으면 서로 자리를 바꾼다
+    trSel[lang][i] = v;
+  }
+  trSel = {ko:_pick2(trSel.ko, KO_CHOICES, TR_DEF.ko), en:_pick2(trSel.en, EN_CHOICES, TR_DEF.en)};
+  try { localStorage.setItem(TR_KEY, JSON.stringify(trSel)); } catch(e) {}
+  paintTrPick();
+  if(typeof toast === 'function') toast('번역본을 바꿨어요. 다음 분석부터 보여요 📖');
+}
+
 let lastTrans = null;
 let lastVerbatim = [];
 let lastAnalysis = {};
+let lastKo = TR_DEF.ko.slice();    // 이번 분석에 실제로 쓰인 한국어 칸
+let lastEn = TR_DEF.en.slice();    // 이번 분석에 실제로 쓰인 영어 칸
+let lastOrder = [];                // 화면에 그릴 칸 순서
 let origHl = -1;          // 번역본에 자리를 표시해 둔 원어 번호 (없으면 -1)
 let studyPending = false; // 단어·원어를 아직 받아오는 중인지
 function speakTrans(key) {
@@ -1263,8 +1335,9 @@ function paintTrans(){
   if(!tbody) return;
   const trans = lastTrans || {};
   const verbatim = Array.isArray(lastVerbatim) ? lastVerbatim : [];
-  tbody.innerHTML = ['개역개정','새번역','NKJV','NASB'].map(v =>
-    trans[v] ? `<tr><td>${v}${verbatim.indexOf(v)>=0?`<span class="verbatim" title="성경 본문 제공처에서 받아온 원문 그대로예요">원문</span>`:''}${(v==='NKJV'||v==='NASB')?`<button class="tts-btn" title="영어로 듣기" onclick="speakTrans('${v}')">🔊</button>`:''}</td><td>${trans[v]}</td></tr>` : ''
+  const order = (lastOrder && lastOrder.length) ? lastOrder : trOrder();
+  tbody.innerHTML = order.map(v =>
+    trans[v] ? `<tr><td>${v}${verbatim.indexOf(v)>=0?`<span class="verbatim" title="성경 본문 제공처에서 받아온 원문 그대로예요">원문</span>`:''}${lastEn.indexOf(v)>=0?`<button class="tts-btn" title="영어로 듣기" onclick="speakTrans('${v}')">🔊</button>`:''}</td><td>${trans[v]}</td></tr>` : ''
   ).join('');
   applyOrigHl();
 }
@@ -1272,6 +1345,12 @@ function paintTrans(){
 function renderText(data) {
   data = data || {};
   const trans = (data.translations && typeof data.translations === 'object') ? data.translations : {};
+  /* 이 분석이 실제로 쓴 번역본 순서 (옛 기록이면 그때 쓴 것을 그대로 따른다) */
+  const t = (data.tr && typeof data.tr === 'object') ? data.tr : null;
+  lastKo = t ? _pick2(t.ko, KO_CHOICES, trSel.ko) : trSel.ko.slice();
+  lastEn = t ? _pick2(t.en, EN_CHOICES, trSel.en) : trSel.en.slice();
+  lastOrder = lastKo.concat(lastEn).filter(function(v){ return trans[v]; });
+  if(!lastOrder.length) lastOrder = Object.keys(trans);
   lastTrans = trans;
   lastVerbatim = Array.isArray(data.verbatim) ? data.verbatim : [];
   lastAnalysis = data;
@@ -1280,8 +1359,10 @@ function renderText(data) {
   // 노란 칠이 하나라도 있을 때만 설명 줄을 보여 준다
   const note = document.getElementById('hl-note');
   if(note){
-    const any = ['NKJV','NASB'].some(v => /class="hl"/.test(String(trans[v]||'')));
+    const any = lastEn.some(v => /class="hl"/.test(String(trans[v]||'')));
     note.style.display = any ? 'block' : 'none';
+    const nm = document.getElementById('hl-note-names');
+    if(nm) nm.textContent = lastEn.join('와 ');
   }
   const area = document.getElementById('result-area');
   area.style.display = 'block';
@@ -1402,7 +1483,7 @@ function applyOrigHl(){
     var name = (tr.cells[0] ? tr.cells[0].textContent : '').trim();
     var cell = tr.cells[1];
     if(!cell) return;
-    var isEn = name.indexOf('NKJV') === 0 || name.indexOf('NASB') === 0;
+    var isEn = lastEn.some(function(e){ return name.indexOf(e) === 0; });
     var needle = isEn ? en : ko;
     if(!needle) return;
     var nodes = textNodesOf(cell);
@@ -1882,7 +1963,7 @@ async function toggleScrip(id) {
   if(!data) {
     body.innerHTML = '<div class="scrip-msg"><span class="spinner"></span> 말씀을 불러오는 중…</div>';
     try {
-      const res = await apiFetch('/api/analyze', {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({passage, stage:'text'})});
+      const res = await apiFetch('/api/analyze', {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({passage, stage:'text', tr:{ko:trSel.ko.slice(), en:trSel.en.slice()}})});
       data = await res.json();
       if(data && data.error) data = null;
     } catch(err) { data = null; }
@@ -2246,6 +2327,7 @@ function applyBigFont(on){
 }
 function toggleBigFont(){ applyBigFont(!document.body.classList.contains('bigfont')); }
 try{ applyBigFont(localStorage.getItem('ca_bigfont') === '1'); }catch(e){}
+try{ paintTrPick(); }catch(e){}
 
 /* ── 📝 단어 시험 ── */
 let qzList = [], qzIdx = 0, qzScore = 0, qzWrong = [], qzLocked = false, qzResults = {};
@@ -2736,6 +2818,6 @@ if('serviceWorker' in navigator) navigator.serviceWorker.register('/sw.js').catc
   <button id="tts-pause" onclick="ttsPause()">⏸ 잠깐</button>
   <button onclick="ttsStop()">⏹ 그만</button>
 </div>
-<!-- build:v20 -->
+<!-- build:v21 -->
 </body>
 </html>
