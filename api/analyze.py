@@ -484,6 +484,70 @@ def _clean_nums(s):
     return s.strip(':-')
 
 
+_LIST_SEPS = ',，、､'
+
+
+def parse_parts(passage):
+    """'요한복음 3:7,16-17' → ('john', 3, [7, 16, 17]).
+    쉼표로 끊긴, 이어지지 않는 절들을 그대로 뽑아 준다.
+    쉼표가 없거나 한 글자라도 못 알아들으면 None → 지금까지 하던 방식(parse_ref)으로 돌아간다."""
+    raw = str(passage or '').strip()
+    if not raw:
+        return None
+    s = re.sub(r'\s+', '', raw)
+    book = None
+    for k in _BOOK_KEYS:
+        if s.startswith(k):
+            book = KO_BOOKS[k]
+            s = s[len(k):]
+            break
+    if not book:
+        m = re.match(r'^([1-3]?\s*[a-zA-Z][a-zA-Z.\s]*)', raw)
+        if not m:
+            return None
+        book = _en_book(m.group(1))
+        if not book:
+            return None
+        s = re.sub(r'\s+', '', raw[m.end():])
+    if not any(c in s for c in _LIST_SEPS):
+        return None                      # 쉼표가 없으면 예전 방식 그대로
+    for c in _LIST_SEPS[1:]:
+        s = s.replace(c, ',')
+    for d in _DASHES:
+        s = s.replace(d, '-')
+    s = s.replace('장', ':').replace('편', ':').replace('篇', ':').replace('章', ':')
+    s = s.replace('절', '').replace('항', '').replace('제', '')
+    s = re.sub(r'[.;·/]', ':', s)
+    s = re.sub(r':{2,}', ':', s)
+    s = re.sub(r'-{2,}', '-', s)
+    s = s.strip(':-,')
+    m = re.match(r'^(\d+):(.+)$', s)
+    if not m:
+        return None
+    ch = int(m.group(1))
+    nums = []
+    for part in m.group(2).split(','):
+        part = part.strip(':-')
+        if not part:
+            continue
+        mm = re.match(r'^(\d+)-(\d+)$', part)
+        if mm:
+            a, b = int(mm.group(1)), int(mm.group(2))
+            if b < a:
+                a, b = b, a
+            nums.extend(range(a, min(b, a + 80) + 1))
+            continue
+        mm = re.match(r'^(\d+)$', part)
+        if mm:
+            nums.append(int(mm.group(1)))
+            continue
+        return None                      # 못 알아들으면 통째로 포기 (엉뚱한 절을 주는 것보다 낫다)
+    nums = sorted(set(n for n in nums if 1 <= n <= 200))
+    if len(nums) < 2:
+        return None
+    return (book, ch, nums[:80])
+
+
 def parse_ref(passage):
     """'여호수아 4:6-7', '수 4:6~7', '요한복음 3장 16절', '마태복음 4장',
     '시편 23편 1-3절', 'Matt 4:3-11' → ('joshua', 4, 6, 7). 해석 못 하면 None.
@@ -641,10 +705,16 @@ def fetch_scripture(passage, en_list=None):
     돌려주는 값: {'rows': [{'n':6, '개역한글':..., '새번역':..., 'NKJV':..., 'NASB':...}, ...],
                   'ref': '여호수아 4:6-8', 'got': ['NKJV', ...]}
     하나도 못 받으면 None."""
-    ref = parse_ref(passage)
-    if not ref:
-        return None
-    book, ch, v1, v2 = ref
+    parts = parse_parts(passage)          # '3:7,16-17'처럼 이어지지 않는 절
+    if parts:
+        book, ch, pick = parts
+        v1 = v2 = None
+    else:
+        pick = None
+        ref = parse_ref(passage)
+        if not ref:
+            return None
+        book, ch, v1, v2 = ref
     book_id = BOLLS_BOOK.get(book)
     if not book_id:
         return None
@@ -664,7 +734,9 @@ def fetch_scripture(passage, en_list=None):
         return None
 
     # 요청한 절 범위 정하기 (장 전체면 받아온 절 전부)
-    if v1:
+    if pick:
+        nums = list(pick)
+    elif v1:
         nums = list(range(v1, (v2 or v1) + 1))
     else:
         allv = set()
@@ -731,6 +803,76 @@ _STOP_EN = set('''the a an and or of to in is are was were be been that this the
 for with from by on at as it its he she they them his her their you your ye thou thy thee
 shall will not but so which who whom what when then there here up out over into unto
 '''.split())
+
+
+_IRREG = {
+    'gave': 'give', 'given': 'give', 'went': 'go', 'gone': 'go', 'came': 'come',
+    'said': 'say', 'saw': 'see', 'seen': 'see', 'made': 'make', 'took': 'take',
+    'taken': 'take', 'told': 'tell', 'held': 'hold', 'kept': 'keep', 'left': 'leave',
+    'brought': 'bring', 'built': 'build', 'sent': 'send', 'stood': 'stand',
+    'spoke': 'speak', 'spoken': 'speak', 'knew': 'know', 'known': 'know',
+    'fell': 'fall', 'fallen': 'fall', 'laid': 'lay', 'led': 'lead',
+    'men': 'man', 'women': 'woman', 'children': 'child', 'feet': 'foot',
+}
+
+
+def _stem(w):
+    """'stretched' → 'stretch', 'gives' → 'giv'. 같은 낱말의 다른 꼴을 한 덩이로 묶기 위한 어림 어간."""
+    w = re.sub(r'[^a-z]', '', str(w or '').lower())
+    if not w:
+        return ''
+    if w in _IRREG:
+        w = _IRREG[w]
+    else:
+        for suf, rep in (('ies', 'y'), ('ied', 'y'), ('ing', ''), ('ed', ''), ('s', '')):
+            if w.endswith(suf) and len(w) - len(suf) >= 3:
+                w = w[:len(w) - len(suf)] + rep
+                break
+        if len(w) >= 4 and w[-1] == w[-2] and w[-1] not in 'aeiou':
+            w = w[:-1]
+    if len(w) >= 4 and w.endswith('e'):
+        w = w[:-1]
+    return w
+
+
+def _word_key(s):
+    """'Stretch out'과 'stretched out'을 같은 이름표로 만든다."""
+    toks = [t for t in re.split(r'[^A-Za-z]+', str(s or '')) if t]
+    return ' '.join(_stem(t) for t in toks if _stem(t))
+
+
+def dedupe_words(words):
+    """같은 영어 낱말이 꼴만 바꿔 두 번 나오는 것을 지운다 (먼저 나온 것을 남긴다)."""
+    if not isinstance(words, list):
+        return words
+    seen, out = set(), []
+    for w in words:
+        if not isinstance(w, dict):
+            continue
+        k = _word_key(w.get('english'))
+        if not k or k in seen:
+            continue
+        seen.add(k)
+        out.append(w)
+    return out
+
+
+def dedupe_originals(items):
+    """같은 원어(Strong's 번호 또는 원어 철자)가 두 번 나오는 것을 지운다."""
+    if not isinstance(items, list):
+        return items
+    seen, out = set(), []
+    for it in items:
+        if not isinstance(it, dict):
+            continue
+        k = re.sub(r'\s+', '', str(it.get('strong') or '')).upper() \
+            or re.sub(r'\s+', '', str(it.get('original') or ''))
+        if k and k in seen:
+            continue
+        if k:
+            seen.add(k)
+        out.append(it)
+    return out
 
 
 def _content_words(s):
@@ -1054,6 +1196,7 @@ PROMPT = '''성경 본문 "{passage}"를 분석해서 아래 JSON 형식으로�
 
 words 규칙 (★"영어 사전"이라고 생각하고 뽑아라. 성경 해석이 아니다★):
 - 표제(english)는 이 본문의 영어 본문(NKJV/NASB)에 실제로 나오는 "영어 단어 하나" 또는 "굳어진 표현/숙어"여야 한다. 문장 조각이나 해석(예: "believes in Him", "should not perish")은 절대 넣지 마라 — 그건 단어가 아니라 문장이다. 사전 표제어가 될 만한 것만: 낱말(everlasting, eternal, perish, begotten, so) 또는 숙어/구동사(lay down, abide in).
+- ★같은 낱말은 절대 두 번 넣지 마라.★ 꼴만 바뀐 것(stretch out / stretched out, give / gave, command / commanded)은 한 항목으로만 넣고, 사전 표제어 꼴(원형)로 적어라. 절이 여러 개면 처음 나오는 절 번호를 쓴다.
 - everlasting과 eternal처럼 서로 다른 단어는 하나로 묶지 말고 각각 따로 항목으로 넣어라. ("everlasting life / eternal life"처럼 합치지 마라.)
 - meaning = 표준 영어사전의 사전적 정의(한국어) 2~3개. 문맥 의역·성경식 풀이 금지. 그 단어를 사전에서 찾으면 나오는 뜻을 적어라.
 - nuance = 그 단어가 "영어에서 일상적으로 어떤 어감·용법으로 쓰이는지" + 예문 하나. 성경적 의미로 설명하지 마라. (예: so는 too와 달리 긍정적 강조에 쓴다는 식.)
@@ -1067,7 +1210,7 @@ words 규칙 (★"영어 사전"이라고 생각하고 뽑아라. 성경 해석�
 - 뽑은 단어는 절 번호 순서대로 정렬해서 내보내라 (앞 절 단어가 먼저).
 - 원어(헬라어/히브리어)는 words에 넣지 마 (originals에서).
 originals 규칙 (★영어단어 외우듯 '단어=뜻'으로 끝내지 마라. 이 칸의 목적은 뉘앙스다★):
-- 이 본문에서 가장 중요한 원어 딱 3개만.
+- 이 본문에서 가장 중요한 원어 딱 3개만. 같은 Strong's 번호를 두 번 넣지 마라.
 - Strong's 번호는 반드시 정확해야 한다 (블루레터바이블·바이블허브에서 검증 가능해야 하므로).
 - ★where는 반드시 채워라.★ 읽는 사람이 "몇 절 어느 단어가 이 원어인지"를 알아야 본문에서 찾을 수 있다. 절 번호 + 그 자리의 한국어 표현(개역한글 기준)을 꼭 같이 적어라. 절이 하나뿐인 본문이면 그 절 번호를 그대로 적어라.
 - ★phrases는 위에 주어진 본문에 '글자 그대로' 있는 어구여야 한다.★ 화면에서 그 자리를 찾아 표시하는 데 쓰므로, 한 글자라도 다르면 못 찾는다. 요약하거나 고쳐 쓰지 말고 본문에서 그대로 오려 붙여라. 확실하지 않으면 빈 문자열로 두어라.
@@ -1213,7 +1356,7 @@ DEFINE_PROMPT = '''아래 영어 단어들의 "영어사전 뜻"을 알려줘. �
 JSON만 출력.'''
 
 
-SCHEMA_VER = 20  # 분석 결과 형식 버전. 올리면 이전 캐시를 자동으로 무시하고 다시 분석함.
+SCHEMA_VER = 22  # 분석 결과 형식 버전. 올리면 이전 캐시를 자동으로 무시하고 다시 분석함.
 
 
 def _valid(d, stage='all'):
@@ -1412,7 +1555,9 @@ class handler(BaseHTTPRequestHandler):
                 data['stage'] = stage
                 data['tr'] = {'ko': list(ko_list), 'en': list(en_list)}
                 if isinstance(data.get('words'), list):
-                    data['words'] = data['words'][:12]
+                    data['words'] = dedupe_words(data['words'])[:12]
+                if isinstance(data.get('originals'), list):
+                    data['originals'] = dedupe_originals(data['originals'])
                 data.pop('diffs', None)
                 data.pop('verses', None)
                 data.pop('verses_rows', None)
@@ -1471,7 +1616,9 @@ class handler(BaseHTTPRequestHandler):
 
             # 단어는 최대 10개까지만 (AI가 더 줘도 잘라냄; 부족하면 있는 만큼)
             if isinstance(data.get('words'), list):
-                data['words'] = data['words'][:12]
+                data['words'] = dedupe_words(data['words'])[:12]
+            if isinstance(data.get('originals'), list):
+                data['originals'] = dedupe_originals(data['originals'])
 
             # 하이라이트는 하지 않는다. 번역본 비교 칸은 '본문 그대로'만 정확히 보여 준다.
             data.pop('diffs', None)
