@@ -121,6 +121,7 @@ textarea:focus{border-color:var(--green)}
 .orig-hl-btn{margin-top:10px;background:var(--green-l);color:var(--green-d);border:2px solid var(--green);border-radius:999px;padding:6px 13px;font-family:'Jua',sans-serif;font-size:calc(12px * var(--fs));cursor:pointer}
 .orig-hl-btn.on{background:var(--green);color:white}
 .vn{color:var(--green-d);font-size:calc(10px * var(--fs));font-weight:700;margin-right:2px;vertical-align:super;line-height:0}
+.trans-table td br{content:'';display:block;margin-bottom:5px}
     .verbatim{display:inline-block;background:var(--green-l);color:var(--green-d);font-size:calc(9.5px * var(--fs));font-weight:700;border-radius:999px;padding:1px 6px;margin-left:4px;vertical-align:middle}
 .pos-badge{background:var(--terra-l);color:var(--terra-d);font-size:calc(10px * var(--fs));padding:2px 8px;border-radius:999px;vertical-align:middle;margin-left:5px}
 .word-card{border:2px solid var(--line-l);border-radius:12px;padding:16px 18px;margin-bottom:10px;background:white;border-left:5px solid var(--green)}
@@ -2645,7 +2646,8 @@ async function copyText(text, okMsg) {
 }
 function stripHl(t) {
   // <span class="hl">X</span> → **X** (노션에서 굵게로 표현), 나머지 태그 제거
-  return String(t||'').replace(/<sup class="vn">(\d+)<\/sup>\s*/g, '**$1** ')
+  return String(t||'').replace(/\s*<br\s*\/?>\s*/gi, '\n')
+                      .replace(/<sup class="vn">(\d+)<\/sup>\s*/g, '**$1** ')
                       .replace(/<span class="hl">(.*?)<\/span>/g, '**$1**').replace(/<[^>]*>/g, '');
 }
 function entryMarkdown(e) {
@@ -2818,6 +2820,6 @@ if('serviceWorker' in navigator) navigator.serviceWorker.register('/sw.js').catc
   <button id="tts-pause" onclick="ttsPause()">⏸ 잠깐</button>
   <button onclick="ttsStop()">⏹ 그만</button>
 </div>
-<!-- build:v22 -->
+<!-- build:v23 -->
 </body>
 </html>
