@@ -1,1 +1,1 @@
-# no packages
+pywebpush==2.4.0
