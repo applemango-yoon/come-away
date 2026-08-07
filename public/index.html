@@ -13,7 +13,7 @@
 <meta property="og:url" content="https://come-away-xi.vercel.app/">
 <meta property="og:locale" content="ko_KR">
 <meta name="twitter:card" content="summary">
-<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' rx='22' fill='%23f6f1e7'/%3E%3Ctext x='50' y='66' font-size='44' text-anchor='middle'%3E%F0%9F%90%9F%3C/text%3E%3C/svg%3E">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' rx='22' fill='%23a9daf0'/%3E%3Ctext x='50' y='68' font-size='46' text-anchor='middle'%3E%F0%9F%A5%90%3C/text%3E%3C/svg%3E">
 <link rel="apple-touch-icon" href="/icon-180.png">
 <link rel="manifest" href="/manifest.json">
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -159,6 +159,10 @@ textarea:focus{border-color:var(--green)}
 .orig-core{font-size:calc(14.5px * var(--fs));color:var(--ink);line-height:1.85;background:var(--cream);border:1.5px dashed var(--terra-l);border-radius:10px;padding:8px 11px;margin:2px 0 8px}
 .orig-core b{font-family:'Jua',sans-serif;font-weight:400;color:var(--terra-d);margin-right:6px;white-space:nowrap}
 .orig-core i{font-style:normal;color:var(--terra-d);font-weight:700}
+.push-prefs{margin-top:10px;background:var(--cream);border:1.5px solid var(--line-l);border-radius:12px;padding:10px 12px}
+.push-prefs .pp-t{font-size:calc(11.5px * var(--fs));color:var(--green-d);font-weight:700;margin-bottom:7px}
+.push-prefs label{display:flex;align-items:center;gap:9px;font-size:calc(13.5px * var(--fs));color:var(--ink);line-height:1.9;cursor:pointer}
+.push-prefs input{width:17px;height:17px;accent-color:var(--green);flex:0 0 auto}
 .orig-senses{margin:8px 0 6px;background:var(--cream);border:1.5px solid var(--line-l);border-radius:10px;padding:9px 12px}
 .orig-senses-t{font-size:calc(11.5px * var(--fs));color:var(--green-d);font-weight:700;margin-bottom:6px}
 .orig-sense{display:flex;gap:8px;margin-bottom:7px}
@@ -755,7 +759,14 @@ textarea:focus{border-color:var(--green)}
     <div class="card-title">🌱 나의 걸음</div>
     <div class="stat-row" id="my-stats"></div>
     <div class="backup-row">
-      <button class="flash-btn" id="push-btn" style="margin-top:0" onclick="togglePush()">🔔 아침 알림 켜기</button>
+      <button class="flash-btn" id="push-btn" style="margin-top:0" onclick="togglePush()">🔔 알림 받기</button>
+    </div>
+    <div class="push-prefs" id="push-prefs" style="display:none">
+      <div class="pp-t">받고 싶은 알림만 골라 주세요</div>
+      <label><input type="checkbox" id="pf-act" onchange="savePushPrefs()">💬 댓글 · 🥐 빵 · 🐟 물고기를 받았을 때 <span style="opacity:.55;font-size:calc(11.5px * var(--fs))">바로</span></label>
+      <label><input type="checkbox" id="pf-morning" onchange="savePushPrefs()">🌅 아침 묵상 리마인더 <span style="opacity:.55;font-size:calc(11.5px * var(--fs))">아침 9시</span></label>
+      <label><input type="checkbox" id="pf-word" onchange="savePushPrefs()">🔑 영단어 복습 <span style="opacity:.55;font-size:calc(11.5px * var(--fs))">밤 10시</span></label>
+      <label><input type="checkbox" id="pf-plan" onchange="savePushPrefs()">✍️ 액션 플랜 리마인더 <span style="opacity:.55;font-size:calc(11.5px * var(--fs))">오후 4시 반</span></label>
     </div>
     <div class="backup-row">
       <button class="backup-btn" style="border-color:var(--terra);color:var(--terra-d)" onclick="copyAllMyEntries()">📋 노션으로 전체 복사</button>
@@ -2545,15 +2556,70 @@ function b64ToUint8(base64) {
 function pushSupported() {
   return 'serviceWorker' in navigator && 'PushManager' in window && 'Notification' in window;
 }
-async function refreshPushBtn() {
-  const btn = document.getElementById('push-btn');
-  if(!btn) return;
-  if(!pushSupported()) { btn.textContent = '🔔 이 브라우저는 알림 미지원'; btn.style.opacity='.6'; return; }
+/* ── 어떤 알림을 받을지 (이 기기에 저장 + 서버에도 보냄) ── */
+var PUSH_PREF_KEY = 'ca_push_prefs';
+var PUSH_PREF_DEF = {p_act:true, p_morning:true, p_word:true, p_plan:true};
+function loadPushPrefs(){
+  var t = null;
+  try { t = JSON.parse(localStorage.getItem(PUSH_PREF_KEY) || 'null'); } catch(e) {}
+  var out = {};
+  Object.keys(PUSH_PREF_DEF).forEach(function(k){
+    out[k] = (t && typeof t === 'object' && k in t) ? !!t[k] : PUSH_PREF_DEF[k];
+  });
+  return out;
+}
+function paintPushPrefs(pf){
+  pf = pf || loadPushPrefs();
+  [['pf-act','p_act'],['pf-morning','p_morning'],['pf-word','p_word'],['pf-plan','p_plan']]
+    .forEach(function(pair){
+      var el = document.getElementById(pair[0]);
+      if(el) el.checked = !!pf[pair[1]];
+    });
+}
+function readPushPrefs(){
+  var pf = {};
+  [['pf-act','p_act'],['pf-morning','p_morning'],['pf-word','p_word'],['pf-plan','p_plan']]
+    .forEach(function(pair){
+      var el = document.getElementById(pair[0]);
+      pf[pair[1]] = el ? !!el.checked : true;
+    });
+  return pf;
+}
+async function savePushPrefs(){
+  var pf = readPushPrefs();
+  try { localStorage.setItem(PUSH_PREF_KEY, JSON.stringify(pf)); } catch(e) {}
   try {
     const reg = await navigator.serviceWorker.getRegistration();
     const sub = reg && await reg.pushManager.getSubscription();
-    btn.textContent = sub ? '🔔 아침 알림 켜짐 (끄기)' : '🔔 아침 알림 켜기';
-  } catch(e) { btn.textContent = '🔔 아침 알림 켜기'; }
+    if(sub){
+      await apiFetch('/api/push', {method:'POST', headers:{'Content-Type':'application/json'},
+        body:JSON.stringify({action:'prefs', endpoint: sub.endpoint, prefs: pf})});
+    }
+  } catch(e) {}
+  if(!Object.keys(pf).some(function(k){ return pf[k]; })){
+    toast('네 가지를 모두 끄면 알림이 오지 않아요.');
+  } else {
+    toast('알림 설정을 저장했어요 🔔');
+  }
+}
+
+async function refreshPushBtn() {
+  const btn = document.getElementById('push-btn');
+  const box = document.getElementById('push-prefs');
+  if(!btn) return;
+  if(!pushSupported()) {
+    btn.textContent = '🔔 이 브라우저는 알림 미지원'; btn.style.opacity='.6';
+    if(box) box.style.display = 'none';
+    return;
+  }
+  var on = false;
+  try {
+    const reg = await navigator.serviceWorker.getRegistration();
+    const sub = reg && await reg.pushManager.getSubscription();
+    on = !!sub;
+  } catch(e) {}
+  btn.textContent = on ? '🔔 알림 켜짐 (끄기)' : '🔔 알림 받기';
+  if(box){ box.style.display = on ? 'block' : 'none'; if(on) paintPushPrefs(); }
 }
 async function togglePush() {
   if(!me || !me.name) { openNameModal(); return; }
@@ -2570,7 +2636,7 @@ async function togglePush() {
     try { await apiFetch('/api/push', {method:'POST', headers:{'Content-Type':'application/json'},
       body:JSON.stringify({action:'unsubscribe', endpoint: existing.endpoint})}); } catch(e){}
     await existing.unsubscribe();
-    toast('아침 알림을 껐어요.');
+    toast('알림을 껐어요.');
     refreshPushBtn();
     return;
   }
@@ -2583,8 +2649,8 @@ async function togglePush() {
   try {
     const sub = await reg.pushManager.subscribe({userVisibleOnly:true, applicationServerKey: b64ToUint8(publicKey)});
     await apiFetch('/api/push', {method:'POST', headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({action:'subscribe', name: me.name, subscription: sub})});
-    toast('아침 알림을 켰어요! 매일 아침 묵상 리마인더를 보내드릴게요 🔔');
+      body:JSON.stringify({action:'subscribe', name: me.name, subscription: sub, prefs: loadPushPrefs()})});
+    toast('알림을 켰어요! 아래에서 받고 싶은 것만 골라 주세요 🔔');
     refreshPushBtn();
   } catch(e) { toast('알림을 켜지 못했어요: '+e.message); }
 }
@@ -2899,6 +2965,6 @@ if('serviceWorker' in navigator) navigator.serviceWorker.register('/sw.js').catc
   <button id="tts-pause" onclick="ttsPause()">⏸ 잠깐</button>
   <button onclick="ttsStop()">⏹ 그만</button>
 </div>
-<!-- build:v28 -->
+<!-- build:v31 -->
 </body>
 </html>
