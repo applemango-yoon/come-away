@@ -33,6 +33,48 @@ def sb(method, path, data=None):
         return json.loads(body) if body else None
 
 
+# ── 웹 푸시 알림 ────────────────────────────────────────────────
+# VAPID 키가 환경변수에 있을 때만 동작한다. 실패해도 본래 작업은 그대로 성공시킨다.
+def push_to(names, title, message, url='/'):
+    pub = os.environ.get('VAPID_PUBLIC_KEY', '')
+    priv = os.environ.get('VAPID_PRIVATE_KEY', '')
+    if not pub or not priv or not names:
+        return 0
+    try:
+        from pywebpush import webpush, WebPushException
+    except Exception:
+        return 0
+    site = os.environ.get('SITE_URL', 'https://come-away-xi.vercel.app')
+    try:
+        subs = sb('GET', 'push_subscriptions?select=endpoint,name,sub') or []
+    except Exception:
+        return 0
+    want = set(names)
+    payload = json.dumps({'title': title, 'body': message,
+                          'url': site.rstrip('/') + url}, ensure_ascii=False)
+    claims = {'sub': 'mailto:' + os.environ.get('VAPID_SUBJECT', 'admin@mombakery.app')}
+    sent = 0
+    for s in subs:
+        if s.get('name') not in want:
+            continue
+        try:
+            webpush(subscription_info=s['sub'], data=payload,
+                    vapid_private_key=priv, vapid_claims=dict(claims))
+            sent += 1
+        except WebPushException as e:
+            # 만료된 구독(404/410)은 지운다
+            r = getattr(e, 'response', None)
+            if r is not None and getattr(r, 'status_code', 0) in (404, 410):
+                try:
+                    sb('DELETE', 'push_subscriptions?endpoint=eq.'
+                       + urllib.parse.quote(s['endpoint'], safe=''))
+                except Exception:
+                    pass
+        except Exception:
+            pass
+    return sent
+
+
 class handler(BaseHTTPRequestHandler):
     def log_message(self, *a): pass
 
@@ -63,6 +105,15 @@ class handler(BaseHTTPRequestHandler):
                     self._send_json({'error': 'bad_request', 'message': '내용을 입력해 주세요.'}, 400)
                     return
                 sb('POST', 'comments', {'entry_id': entry_id, 'author': author, 'text': text})
+                try:                                  # 묵상 주인에게 알림 (내 글에 내가 달면 보내지 않음)
+                    owner = sb('GET', 'entries?id=eq.'
+                               + urllib.parse.quote(str(entry_id), safe='') + '&select=author') or []
+                    who = (owner[0].get('author') or '').strip() if owner else ''
+                    if who and who != author:
+                        push_to([who], '\U0001f4ac 새 댓글이 달렸어요',
+                                '%s님이 당신의 묵상에 댓글을 남겼어요.' % author)
+                except Exception:
+                    pass
                 self._send_json({'ok': True})
 
             elif action == 'delete':

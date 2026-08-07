@@ -45,6 +45,48 @@ def today_kst():
     return datetime.now(KST).strftime('%Y-%m-%d')
 
 
+# ── 웹 푸시 알림 ────────────────────────────────────────────────
+# VAPID 키가 환경변수에 있을 때만 동작한다. 실패해도 본래 작업은 그대로 성공시킨다.
+def push_to(names, title, message, url='/'):
+    pub = os.environ.get('VAPID_PUBLIC_KEY', '')
+    priv = os.environ.get('VAPID_PRIVATE_KEY', '')
+    if not pub or not priv or not names:
+        return 0
+    try:
+        from pywebpush import webpush, WebPushException
+    except Exception:
+        return 0
+    site = os.environ.get('SITE_URL', 'https://come-away-xi.vercel.app')
+    try:
+        subs = sb('GET', 'push_subscriptions?select=endpoint,name,sub') or []
+    except Exception:
+        return 0
+    want = set(names)
+    payload = json.dumps({'title': title, 'body': message,
+                          'url': site.rstrip('/') + url}, ensure_ascii=False)
+    claims = {'sub': 'mailto:' + os.environ.get('VAPID_SUBJECT', 'admin@mombakery.app')}
+    sent = 0
+    for s in subs:
+        if s.get('name') not in want:
+            continue
+        try:
+            webpush(subscription_info=s['sub'], data=payload,
+                    vapid_private_key=priv, vapid_claims=dict(claims))
+            sent += 1
+        except WebPushException as e:
+            # 만료된 구독(404/410)은 지운다
+            r = getattr(e, 'response', None)
+            if r is not None and getattr(r, 'status_code', 0) in (404, 410):
+                try:
+                    sb('DELETE', 'push_subscriptions?endpoint=eq.'
+                       + urllib.parse.quote(s['endpoint'], safe=''))
+                except Exception:
+                    pass
+        except Exception:
+            pass
+    return sent
+
+
 class handler(BaseHTTPRequestHandler):
     def log_message(self, *a): pass
 
@@ -118,6 +160,12 @@ class handler(BaseHTTPRequestHandler):
                         return
                 sb('POST', 'shells', {'date': today_kst(), 'from_name': frm, 'to_name': to,
                                       'item': item, 'note': note})
+                if item == '\U0001f35e':
+                    push_to([to], '\U0001f950 오늘의 빵이 도착했어요',
+                            '%s님이 오늘의 빵을 당신에게 선물했네요!' % frm)
+                else:
+                    push_to([to], '\U0001f41f 물고기가 도착했어요',
+                            '%s님이 물고기를 나눠 주셨어요!' % frm)
                 self._send_json({'ok': True})
 
             elif action == 'event_grant':
