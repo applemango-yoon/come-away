@@ -56,6 +56,14 @@
       "dest": "/api/remind.py"
     },
     {
+      "src": "/api/remind-word",
+      "dest": "/api/remind.py?kind=word"
+    },
+    {
+      "src": "/api/remind-plan",
+      "dest": "/api/remind.py?kind=plan"
+    },
+    {
       "src": "/api/push",
       "dest": "/api/push.py"
     },
@@ -87,7 +95,15 @@
   "crons": [
     {
       "path": "/api/remind",
-      "schedule": "30 1 * * *"
+      "schedule": "0 0 * * *"
+    },
+    {
+      "path": "/api/remind-plan",
+      "schedule": "30 7 * * *"
+    },
+    {
+      "path": "/api/remind-word",
+      "schedule": "0 13 * * *"
     }
   ]
 }
