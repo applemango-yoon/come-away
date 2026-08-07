@@ -35,7 +35,30 @@ def sb(method, path, data=None):
 
 # ── 웹 푸시 알림 ────────────────────────────────────────────────
 # VAPID 키가 환경변수에 있을 때만 동작한다. 실패해도 본래 작업은 그대로 성공시킨다.
-def push_to(names, title, message, url='/'):
+PUSH_COL = {'act': 'p_act', 'morning': 'p_morning', 'word': 'p_word', 'plan': 'p_plan'}
+
+
+def push_subs():
+    """알림 구독 목록. 설정 칸이 아직 없는 경우도 견딘다."""
+    try:
+        return sb('GET', 'push_subscriptions?select=endpoint,name,sub,'
+                         'p_act,p_morning,p_word,p_plan') or []
+    except Exception:
+        try:
+            return sb('GET', 'push_subscriptions?select=endpoint,name,sub') or []
+        except Exception:
+            return []
+
+
+def push_wants(s, kind):
+    col = PUSH_COL.get(kind)
+    if not col:
+        return True
+    v = s.get(col)
+    return True if v is None else bool(v)
+
+
+def push_to(names, title, message, url='/', kind='act'):
     pub = os.environ.get('VAPID_PUBLIC_KEY', '')
     priv = os.environ.get('VAPID_PRIVATE_KEY', '')
     if not pub or not priv or not names:
@@ -45,25 +68,20 @@ def push_to(names, title, message, url='/'):
     except Exception:
         return 0
     site = os.environ.get('SITE_URL', 'https://come-away-xi.vercel.app')
-    try:
-        subs = sb('GET', 'push_subscriptions?select=endpoint,name,sub') or []
-    except Exception:
-        return 0
     want = set(names)
     payload = json.dumps({'title': title, 'body': message,
                           'url': site.rstrip('/') + url}, ensure_ascii=False)
     claims = {'sub': 'mailto:' + os.environ.get('VAPID_SUBJECT', 'admin@mombakery.app')}
     sent = 0
-    for s in subs:
-        if s.get('name') not in want:
+    for s in push_subs():
+        if s.get('name') not in want or not push_wants(s, kind):
             continue
         try:
             webpush(subscription_info=s['sub'], data=payload,
                     vapid_private_key=priv, vapid_claims=dict(claims))
             sent += 1
         except WebPushException as e:
-            # 만료된 구독(404/410)은 지운다
-            r = getattr(e, 'response', None)
+            r = getattr(e, 'response', None)          # 만료된 구독(404/410)은 지운다
             if r is not None and getattr(r, 'status_code', 0) in (404, 410):
                 try:
                     sb('DELETE', 'push_subscriptions?endpoint=eq.'
@@ -73,7 +91,6 @@ def push_to(names, title, message, url='/'):
         except Exception:
             pass
     return sent
-
 
 class handler(BaseHTTPRequestHandler):
     def log_message(self, *a): pass

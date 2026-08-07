@@ -36,6 +36,19 @@ def sb(method, path, data=None, extra_headers=None):
         return json.loads(body) if body else None
 
 
+PREF_KEYS = ('p_act', 'p_morning', 'p_word', 'p_plan')
+
+
+def _prefs(d):
+    """보내온 알림 설정 중 아는 항목만 참/거짓으로 추려낸다."""
+    out = {}
+    if isinstance(d, dict):
+        for k in PREF_KEYS:
+            if k in d:
+                out[k] = bool(d[k])
+    return out
+
+
 class handler(BaseHTTPRequestHandler):
     def log_message(self, *a): pass
 
@@ -44,7 +57,20 @@ class handler(BaseHTTPRequestHandler):
         if not member_ok(self):
             self._send_json({'error': 'bad_code'}, 401)
             return
-        self._send_json({'publicKey': os.environ.get('VAPID_PUBLIC_KEY', '')})
+        out = {'publicKey': os.environ.get('VAPID_PUBLIC_KEY', '')}
+        # ?endpoint=... 를 주면 그 기기의 알림 설정도 같이 돌려준다
+        q = urllib.parse.urlparse(self.path).query
+        ep = (urllib.parse.parse_qs(q).get('endpoint') or [''])[0]
+        if ep:
+            try:
+                rows = sb('GET', 'push_subscriptions?endpoint=eq.'
+                          + urllib.parse.quote(ep, safe='')
+                          + '&select=p_act,p_morning,p_word,p_plan') or []
+                if rows:
+                    out['prefs'] = rows[0]
+            except Exception:
+                pass
+        self._send_json(out)
 
     def do_POST(self):
         if not member_ok(self):
@@ -62,8 +88,9 @@ class handler(BaseHTTPRequestHandler):
                 if not endpoint or not name:
                     self._send_json({'error': 'bad_request'}, 400)
                     return
-                sb('POST', 'push_subscriptions?on_conflict=endpoint',
-                   {'endpoint': endpoint, 'name': name, 'sub': sub},
+                row = {'endpoint': endpoint, 'name': name, 'sub': sub}
+                row.update(_prefs(body.get('prefs')))
+                sb('POST', 'push_subscriptions?on_conflict=endpoint', row,
                    extra_headers={'Prefer': 'resolution=merge-duplicates,return=minimal'})
                 self._send_json({'ok': True})
 
@@ -71,6 +98,17 @@ class handler(BaseHTTPRequestHandler):
                 endpoint = body.get('endpoint')
                 if endpoint:
                     sb('DELETE', 'push_subscriptions?endpoint=eq.' + urllib.parse.quote(endpoint))
+                self._send_json({'ok': True})
+
+            elif action == 'prefs':
+                endpoint = body.get('endpoint')
+                pf = _prefs(body.get('prefs'))
+                if not endpoint or not pf:
+                    self._send_json({'error': 'bad_request'}, 400)
+                    return
+                sb('PATCH', 'push_subscriptions?endpoint=eq.'
+                   + urllib.parse.quote(endpoint, safe=''), pf,
+                   extra_headers={'Prefer': 'return=minimal'})
                 self._send_json({'ok': True})
 
             else:
