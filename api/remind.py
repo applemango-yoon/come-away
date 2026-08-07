@@ -21,46 +21,6 @@ def sb(method, path, data=None):
         return json.loads(body) if body else None
 
 
-def build_email(name, done_names, site):
-    # MOM 베이커리 테마 아침 묵상 알림 메일
-    return f'''
-    <div style="margin:0;padding:24px 12px;background:#f6f1e7;font-family:'Apple SD Gothic Neo','Malgun Gothic',sans-serif">
-      <div style="max-width:460px;margin:0 auto;background:#fffdf6;border:1px solid #ddd0ba;border-radius:18px;overflow:hidden">
-        <div style="background:#cd8a62;padding:18px 20px;text-align:center">
-          <div style="font-size:22px;font-weight:800;color:#fffdf6;letter-spacing:1px">🥐 MOM 베이커리 🍯</div>
-          <div style="font-size:12px;color:#f5e9c9;margin-top:3px">Miracles on Miracles in Christ · 아침 묵상</div>
-        </div>
-        <div style="padding:26px 24px">
-          <div style="font-size:17px;font-weight:800;color:#4c4237;margin-bottom:10px">🌅 {name}님, 좋은 아침이에요!</div>
-          <p style="font-size:14px;color:#75675a;line-height:1.75;margin:0 0 16px">
-            따끈한 말씀 빵과 커피 한 잔, 오늘도 주님은 참 좋으신 분이에요 ☕<br>
-            잠깐 마주 앉아볼까요? 오늘 함께한 멤버: <b style="color:#a96b47">{done_names}</b>
-          </p>
-          <div style="background:#f5e9c9;border-radius:12px;padding:12px 16px;font-size:13px;color:#66795a;line-height:1.6;margin-bottom:20px">
-            "How good and pleasant it is when God's people dwell together in unity!"<br>— Psalm 133:1</div>
-          <a href="{site}" style="display:block;background:#8aa07a;color:#fffdf6;padding:14px;text-decoration:none;font-weight:800;font-size:15px;text-align:center;border-radius:12px">☀️ 주님과 마주 앉으러 가기</a>
-        </div>
-        <div style="background:#f6f1e7;padding:12px;text-align:center;font-size:11px;color:#b6a88f">
-          이 메일은 MOM 베이커리에 이메일을 등록한 분께 아침마다 보내드려요 🕊️
-        </div>
-      </div>
-    </div>'''
-
-
-def send_email(to, subject, html):
-    payload = json.dumps({
-        'from': os.environ.get('REMIND_FROM', 'MOM 베이커리 <onboarding@resend.dev>'),
-        'to': [to],
-        'subject': subject,
-        'html': html
-    }).encode()
-    req = urllib.request.Request('https://api.resend.com/emails', data=payload, method='POST')
-    req.add_header('Authorization', 'Bearer ' + os.environ['RESEND_API_KEY'])
-    req.add_header('Content-Type', 'application/json')
-    with urllib.request.urlopen(req, timeout=20) as r:
-        return json.loads(r.read())
-
-
 PUSH_COL = {'act': 'p_act', 'morning': 'p_morning', 'word': 'p_word', 'plan': 'p_plan'}
 
 
@@ -153,32 +113,17 @@ class handler(BaseHTTPRequestHandler):
 
             missing = [m for m in members if m['name'] not in done]
             missing_names = [m['name'] for m in missing]
-            sent, skipped = [], []
 
-            # 1) 웹 푸시 — 아직 묵상 안 한 멤버 중 알림 켠 사람에게 (이메일 없어도 감)
+            # 웹 푸시 — 아직 묵상 안 한 멤버 중 알림 켠 사람에게
+            # (이메일 알림은 쓰지 않는다 — 앱 알림만 보낸다)
             pushed = send_push_to(
                 missing_names,
                 '🥐 오늘의 빵이 따끈해요',
                 '잠시 말씀 앞에 머무는 아침 묵상 시간을 가져볼까요?',
                 site, kind='morning')
 
-            # 2) 이메일 — 이메일 등록한 멤버에게
-            if os.environ.get('RESEND_API_KEY'):
-                for m in missing:
-                    if not m.get('email'):
-                        skipped.append(m['name'])
-                        continue
-                    done_names = ' · '.join(sorted(done)) if done else '아직 없어요'
-                    html = build_email(m['name'], done_names, site)
-                    try:
-                        send_email(m['email'], f'🍞 {m["name"]}님, 오늘의 빵이 따끈해요 — 아침 묵상 시간이에요', html)
-                        sent.append(m['name'])
-                    except Exception:
-                        skipped.append(m['name'])
-
-            self._send_json({'ok': True, 'date': today, 'emailed': sent, 'pushed': pushed,
-                             'skipped_email': skipped, 'missing': missing_names,
-                             'already_done': sorted(done)})
+            self._send_json({'ok': True, 'kind': 'morning', 'date': today, 'pushed': pushed,
+                             'missing': missing_names, 'already_done': sorted(done)})
         except Exception as e:
             self._send_json({'error': str(e)}, 500)
 
