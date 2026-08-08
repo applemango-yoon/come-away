@@ -1825,9 +1825,14 @@ function calcStreakFor(name) {
 
 /* ── 팀/광장 ── */
 function teamNames() {
-  const set = new Set(members.map(m => m.name));
-  allEntries.forEach(e => set.add(e.author||'익명'));
-  if(me && me.name) set.add(me.name);
+  /* 멤버 관리(승인)에 있는 사람만 목록에 보여 준다.
+     지운 멤버는 예전 기록이 남아 있어도 목록에서 빠진다. */
+  const set = new Set((members||[]).map(m => m && m.name).filter(Boolean));
+  if(!set.size){
+    // 멤버 목록을 아직 못 받아왔을 때만 예전 방식으로 채운다 (화면이 텅 비지 않게)
+    allEntries.forEach(e => set.add(e.author||'익명'));
+  }
+  if(me && me.name && me.admin) set.add(me.name);   // 관리자는 멤버가 아니어도 보인다
   return [...set];
 }
 function shellBalanceOf(name) {
@@ -2965,6 +2970,6 @@ if('serviceWorker' in navigator) navigator.serviceWorker.register('/sw.js').catc
   <button id="tts-pause" onclick="ttsPause()">⏸ 잠깐</button>
   <button onclick="ttsStop()">⏹ 그만</button>
 </div>
-<!-- build:v31 -->
+<!-- build:v32 -->
 </body>
 </html>
