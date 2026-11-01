@@ -1412,7 +1412,7 @@ DEFINE_PROMPT = '''아래 영어 단어들의 "영어사전 뜻"을 알려줘. �
 JSON만 출력.'''
 
 
-SCHEMA_VER = 29  # 분석 결과 형식 버전. 올리면 이전 캐시를 자동으로 무시하고 다시 분석함.
+SCHEMA_VER = 30  # 분석 결과 형식 버전. 올리면 이전 캐시를 자동으로 무시하고 다시 분석함.
 
 
 def _valid(d, stage='all'):
@@ -1425,6 +1425,39 @@ def _valid(d, stage='all'):
     return isinstance(d.get('translations'), dict) and len(d.get('translations')) > 0
 
 
+def salvage_json(s):
+    """중간에 끊긴 JSON을 최대한 살려 낸다.
+    응답이 길어 잘렸을 때, 마지막으로 '온전하게 닫힌 자리'까지만 잘라 내고
+    남은 괄호를 닫아 준다. 끝의 미완성 항목 하나만 버리고 나머지는 살린다."""
+    stack, in_str, esc, spots = [], False, False, []
+    for i, ch in enumerate(s):
+        if in_str:
+            if esc:
+                esc = False
+            elif ch == '\\':
+                esc = True
+            elif ch == '"':
+                in_str = False
+            continue
+        if ch == '"':
+            in_str = True
+        elif ch == '{':
+            stack.append('}')
+        elif ch == '[':
+            stack.append(']')
+        elif ch in '}]':
+            if stack:
+                stack.pop()
+            spots.append((i, tuple(stack)))      # 여기까지는 구조가 온전하다
+    for i, rest in reversed(spots[-400:]):
+        cut = s[:i + 1] + ''.join(reversed(rest))
+        try:
+            return json.loads(cut)
+        except Exception:
+            continue
+    return None
+
+
 def extract_json(text):
     """모델 응답에서 JSON 객체를 최대한 안전하게 추출"""
     text = text.strip()
@@ -1434,9 +1467,17 @@ def extract_json(text):
             text = m.group(1).strip()
     start = text.find('{')
     end = text.rfind('}')
-    if start == -1 or end == -1:
+    if start == -1:
         raise ValueError('응답에서 JSON을 찾을 수 없음')
-    return json.loads(text[start:end + 1])
+    if end != -1:
+        try:
+            return json.loads(text[start:end + 1])
+        except Exception:
+            pass
+    got = salvage_json(text[start:])              # 잘린 응답 구조 복구
+    if got is None:
+        raise ValueError('응답에서 JSON을 찾을 수 없음')
+    return got
 
 
 def _post_json(url, headers, payload):
@@ -1481,7 +1522,7 @@ def call_ai_raw(content, strict=False):
             if kind == 'anthropic':
                 payload = json.dumps({
                     'model': model,
-                    'max_tokens': 8000,   # 여러 절 범위도 안 잘리게 넉넉히 (실제 쓴 만큼만 과금)
+                    'max_tokens': 16000,  # 단어·원어 설명이 길어져도 중간에 잘리지 않게
                     'temperature': 0.3,
                     'messages': [{'role': 'user', 'content': content}]
                 }).encode()
@@ -1494,7 +1535,7 @@ def call_ai_raw(content, strict=False):
                 payload = json.dumps({
                     'model': model,
                     'messages': [{'role': 'user', 'content': content}],
-                    'max_tokens': 8000,
+                    'max_tokens': 16000,
                     'temperature': 0.3
                 }).encode()
                 headers = {'Authorization': 'Bearer ' + key,
@@ -1617,6 +1658,12 @@ class handler(BaseHTTPRequestHandler):
                 data.pop('diffs', None)
                 data.pop('verses', None)
                 data.pop('verses_rows', None)
+                if stage == 'study' and not _valid(data, 'study'):
+                    # 빈 칸을 보여 주느니 다시 눌러 달라고 알린다 (저장도 하지 않는다)
+                    self._send_json({'error': 'bad_ai',
+                                     'message': '단어와 원어를 받아오지 못했어요. '
+                                                '한 번만 다시 눌러 주세요.'}, 502)
+                    return
                 data['v'] = SCHEMA_VER
 
                 sb('DELETE', 'analyses?passage_key=eq.' + qkey, silent=True)
