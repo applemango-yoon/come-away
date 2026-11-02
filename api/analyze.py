@@ -1,6 +1,7 @@
 import json
 import os
 import re
+import time
 import difflib
 import urllib.parse
 import urllib.request
@@ -1113,7 +1114,7 @@ def providers():
     if os.environ.get('GEMINI_API_KEY'):
         gurl = 'https://generativelanguage.googleapis.com/v1beta/openai/chat/completions'
         gkey = os.environ['GEMINI_API_KEY']
-        gmodels = [m] if m else ['gemini-2.5-flash', 'gemini-2.0-flash', 'gemini-flash-latest', 'gemini-1.5-flash']
+        gmodels = [m] if m else ['gemini-3.8-flash', 'gemini-flash-latest']
         for gm in gmodels:
             out.append(('openai', gurl, gkey, gm))
     if os.environ.get('OPENROUTER_API_KEY'):
@@ -1518,36 +1519,41 @@ def call_ai_raw(content, strict=False):
         content += '\n\n반드시 유효한 JSON 객체 하나만, 다른 텍스트 없이 출력해.'
     errors = []
     for kind, url, key, model in providers():
-        try:
-            if kind == 'anthropic':
-                payload = json.dumps({
-                    'model': model,
-                    'max_tokens': 16000,  # 단어·원어 설명이 길어져도 중간에 잘리지 않게
-                    'temperature': 0.3,
-                    'messages': [{'role': 'user', 'content': content}]
-                }).encode()
-                headers = {'x-api-key': key,
-                           'anthropic-version': '2023-06-01',
-                           'Content-Type': 'application/json'}
-                result = _post_json(url, headers, payload)
-                text = result['content'][0]['text']
-            else:  # openai 호환 (Groq / OpenRouter / Vercel Gateway 등)
-                payload = json.dumps({
-                    'model': model,
-                    'messages': [{'role': 'user', 'content': content}],
-                    'max_tokens': 16000,
-                    'temperature': 0.3
-                }).encode()
-                headers = {'Authorization': 'Bearer ' + key,
-                           'Content-Type': 'application/json'}
-                result = _post_json(url, headers, payload)
-                text = result['choices'][0]['message']['content']
-            return extract_json(text)
-        except (ValueError, json.JSONDecodeError):
-            raise  # 응답은 왔는데 JSON 형식 문제 → 상위에서 strict로 재시도
-        except Exception as e:
-            errors.append('%s %s' % (kind, e))
-            continue  # 이 공급자 실패 → 다음 공급자 시도
+        for attempt in (1, 2):          # 일시적인 혼잡(429/503)이면 잠깐 쉬었다 한 번 더
+            try:
+                if kind == 'anthropic':
+                    payload = json.dumps({
+                        'model': model,
+                        'max_tokens': 16000,  # 단어·원어 설명이 길어져도 중간에 잘리지 않게
+                        'temperature': 0.3,
+                        'messages': [{'role': 'user', 'content': content}]
+                    }).encode()
+                    headers = {'x-api-key': key,
+                               'anthropic-version': '2023-06-01',
+                               'Content-Type': 'application/json'}
+                    result = _post_json(url, headers, payload)
+                    text = result['content'][0]['text']
+                else:  # openai 호환 (제미나이 / Groq / OpenRouter / Vercel Gateway 등)
+                    payload = json.dumps({
+                        'model': model,
+                        'messages': [{'role': 'user', 'content': content}],
+                        'max_tokens': 16000,
+                        'temperature': 0.3
+                    }).encode()
+                    headers = {'Authorization': 'Bearer ' + key,
+                               'Content-Type': 'application/json'}
+                    result = _post_json(url, headers, payload)
+                    text = result['choices'][0]['message']['content']
+                return extract_json(text)
+            except (ValueError, json.JSONDecodeError):
+                raise  # 응답은 왔는데 JSON 형식 문제 → 상위에서 strict로 재시도
+            except Exception as e:
+                msg = '%s' % e
+                if attempt == 1 and ('429' in msg or '503' in msg):
+                    time.sleep(1.5)
+                    continue                      # 같은 공급자로 한 번 더
+                errors.append('%s %s %s' % (kind, model, msg))
+                break                             # 다음 공급자로
     raise RuntimeError(' / '.join(errors) if errors else 'AI 호출에 실패했어요.')
 
 
